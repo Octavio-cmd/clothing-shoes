@@ -501,16 +501,16 @@
   <div class="dash-tagline"><span>Savvy</span> Scanner</div>
   <div class="dash-sub">Select a module to get started</div>
   <div class="dash-grid">
-    <button type="button" class="dash-card scanner" onclick="openScanner();return false;" style="border:none;padding:0;background:none;cursor:pointer">
+    <div class="dash-card scanner" ontouchstart="openScanner()" style="cursor:pointer">
       <div class="dc-icon">📦</div>
       <div class="dc-title">Product Scanner</div>
       <div class="dc-sub">UPC scanning · Pricing · Bulk eBay listings</div>
-    </button>
-    <button type="button" class="dash-card clothing" onclick="clRenderSKU();return false;" style="border:none;padding:0;background:none;cursor:pointer">
+    </div>
+    <div class="dash-card clothing" ontouchstart="clRenderSKU()" style="cursor:pointer">
       <div class="dc-icon">👕👟</div>
       <div class="dc-title">Clothing &amp; Shoes</div>
       <div class="dc-sub">Intake · Photos · Google Sheets · Fast mode</div>
-    </button>
+    </div>
   </div>
   <div id="dash-session-panel" style="display:none;margin:0 16px 16px;background:var(--sf);border-radius:14px;border:1px solid var(--sv);padding:14px">
     <div style="display:flex;align-items:center;gap:10px">
