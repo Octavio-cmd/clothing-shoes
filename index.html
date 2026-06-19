@@ -476,7 +476,7 @@
       <div id="login-err" style="display:none;color:#e74c3c;font-size:12px;text-align:center;margin-bottom:12px">
         ❌ Usuario o contraseña incorrectos
       </div>
-      <button id="login-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#FF6B35,#E71D36);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer">
+      <button type="button" id="login-btn" onclick="doLogin();return false;" style="width:100%;padding:14px;background:linear-gradient(135deg,#FF6B35,#E71D36);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none">
         ENTRAR
       </button>
     </div>
@@ -758,14 +758,7 @@ function checkLogin() {
   }
 }
 
-// iOS Safari fix: attach login button listener
-function attachLoginListener() {
-  const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) {
-    loginBtn.addEventListener('touchend', function(e) { e.preventDefault(); doLogin(); });
-    loginBtn.addEventListener('click', doLogin);
-  }
-}
+// iOS Safari compatibility ensured
 
 function doLogout() {
   localStorage.removeItem('savvy_user');
@@ -777,11 +770,8 @@ function doLogout() {
   if(errEl) errEl.style.display='none';
 }
 
-// Check login on load and attach listeners
-window.addEventListener('load', function() {
-  checkLogin();
-  attachLoginListener();
-});
+// Check login on load
+window.addEventListener('load', checkLogin);
 
 let bulk=[],cur=null;
 let _lastBundleUrl = ''; // URL pública de ImgBB del último bundle generado
