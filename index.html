@@ -759,13 +759,13 @@ function checkLogin() {
 }
 
 // iOS Safari fix: attach login button listener
-document.addEventListener('DOMContentLoaded', function() {
+function attachLoginListener() {
   const loginBtn = document.getElementById('login-btn');
   if (loginBtn) {
     loginBtn.addEventListener('touchend', function(e) { e.preventDefault(); doLogin(); });
     loginBtn.addEventListener('click', doLogin);
   }
-});
+}
 
 function doLogout() {
   localStorage.removeItem('savvy_user');
@@ -777,8 +777,11 @@ function doLogout() {
   if(errEl) errEl.style.display='none';
 }
 
-// Check login on load
-window.addEventListener('load', checkLogin);
+// Check login on load and attach listeners
+window.addEventListener('load', function() {
+  checkLogin();
+  attachLoginListener();
+});
 
 let bulk=[],cur=null;
 let _lastBundleUrl = ''; // URL pública de ImgBB del último bundle generado
