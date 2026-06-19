@@ -729,6 +729,9 @@ async function sha256(str) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Utility functions
+const $=id=>document.getElementById(id);
+
 async function doLogin() {
   const user = (document.getElementById('login-user')?.value||'').trim().toLowerCase();
   const pass = document.getElementById('login-pass')?.value||'';
