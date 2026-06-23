@@ -5425,33 +5425,77 @@ function saveDriveUrl() {
     document.getElementById('drive-status').textContent = '⚠️ URL inválida';
     return;
   }
-  localStorage.setItem('cl_drive_url', url);
-  document.getElementById('drive-status').textContent = '✅ Google Drive URL guardada';
-  document.getElementById('drive-status').style.color = 'var(--sv)';
+
+// ============================================
+// IndexedDB para persistencia real
+// ============================================
+
+const DB_NAME = 'SavvyConfig';
+const STORE_NAME = 'imgbb_config';
+
+function openIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+  });
 }
+
+async function saveToIndexedDB(key, value) {
+  try {
+    const db = await openIndexedDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put(value, key);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Error saving to IndexedDB:', err);
+    return false;
+  }
+}
+
+async function getFromIndexedDB(key) {
+  try {
+    const db = await openIndexedDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.get(key);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('Error reading from IndexedDB:', err);
+    return null;
+  }
+}
+
 
 async function clSaveImgbbKey() {
   const v = document.getElementById('imgbb-key-in')?.value?.trim();
-  if (!v) { 
-    toast('⚠️ Enter ImgBB API key'); 
-    return; 
-  }
+  if (!v) { toast('⚠️ Enter ImgBB API key'); return; }
   
   alert('💾 Guardando en IndexedDB... (1/4)');
   
-  // Guardar en IndexedDB (primario)
   const savedLocally = await saveToIndexedDB('imgbb_key', v);
   
   if (savedLocally) {
     alert('✅ Guardado en IndexedDB (persistente) (2/4)');
   } else {
-    alert('⚠️ Error en IndexedDB, usando fallback (2/4)');
+    alert('⚠️ Error en IndexedDB (2/4)');
   }
   
-  // Guardar en Railway como backup
   try {
     alert('📡 Enviando a Railway como backup... (3/4)');
-    
     const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -5461,16 +5505,19 @@ async function clSaveImgbbKey() {
     if (res.ok) {
       alert(`✅ Railway backup confirmado (4/4)`);
       document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada (IndexedDB + Railway)';
-      toast('✅ Guardada en IndexedDB y Railway');
+      toast('✅ Guardada');
     } else {
-      alert(`⚠️ Railway no respondió bien: ${res.status} (4/4)`);
+      alert(`⚠️ Railway: ${res.status} (4/4)`);
       document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB (Railway offline)';
       toast('✅ Guardada en IndexedDB');
     }
   } catch (err) {
-    alert(`❌ Error en Railway, pero guardada en IndexedDB (4/4)`);
-    document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB (sin conexión a Railway)';
+    alert(`❌ Railway error, pero guardada en IndexedDB (4/4)`);
+    document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB';
     toast('✅ Guardada en IndexedDB');
+  }
+}
+
   }
 }
 
