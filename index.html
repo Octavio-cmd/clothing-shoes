@@ -5430,12 +5430,32 @@ function saveDriveUrl() {
   document.getElementById('drive-status').style.color = 'var(--sv)';
 }
 
-function clSaveImgbbKey() {
+async function clSaveImgbbKey() {
   const v = document.getElementById('imgbb-key-in')?.value?.trim();
   if (!v) { toast('⚠️ Enter ImgBB API key'); return; }
-  localStorage.setItem('cl_imgbb_key', v);
-  document.getElementById('imgbb-status').textContent = '✅ ImgBB key saved — photos will be auto-uploaded to get public URLs';
-  toast('✅ ImgBB key saved');
+  
+  // Guardar en Railway
+  try {
+    const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: v })
+    });
+    
+    if (res.ok) {
+      localStorage.setItem('cl_imgbb_key', v);
+      document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada en servidor — compartida con todos los usuarios';
+      toast('✅ ImgBB key guardada en servidor');
+    } else {
+      localStorage.setItem('cl_imgbb_key', v);
+      document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada localmente (offline)';
+      toast('⚠️ Guardada localmente (offline)');
+    }
+  } catch (err) {
+    localStorage.setItem('cl_imgbb_key', v);
+    document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada localmente (sin conexión)';
+    toast('⚠️ Guardada localmente');
+  }
 }
 
 async function clTestImgbbKey() {
@@ -6541,6 +6561,43 @@ function showAlgopixError(message) {
     content.classList.remove('show');
 
     console.error('Algopix error:', message);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RAILWAY IMGBB CONFIG — OBTENER CLAVE COMPARTIDA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function initImgbbFromRailway() {
+  try {
+    console.log('📡 Obteniendo ImgBB key desde Railway...');
+    const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.key) {
+        console.log('✅ ImgBB key obtenida de Railway');
+        localStorage.setItem('cl_imgbb_key', data.key);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ No se pudo obtener key de Railway:', err.message);
+  }
+  
+  // Fallback a localStorage si existe
+  const localKey = localStorage.getItem('cl_imgbb_key');
+  if (localKey) {
+    console.log('✅ Usando ImgBB key de localStorage');
+  }
+}
+
+// Ejecutar al cargar la página
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initImgbbFromRailway);
+} else {
+  initImgbbFromRailway();
 }
 
 // Intercept Clothing Scanner UPC input
