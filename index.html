@@ -1623,7 +1623,7 @@ function downloadBundleImg(src) {
 // Flujo: foto → PhotoRoom/Remove.bg → PNG transparente limpio → bundle
 async function openBundlePhoto() {
   var input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.capture = 'user';
+  input.type = 'file'; input.accept = 'image/*'; input.capture = true;
   input.onchange = async function(e) {
     var file = e.target.files[0]; if(!file) return;
     var genDiv = document.getElementById('bundle-generating');
@@ -5025,7 +5025,7 @@ async function clTakePhoto(slotId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'user';
+    input.capture = true;
     input.onchange = async e => {
       const file = e.target.files[0];
       if (!file) return resolve();
