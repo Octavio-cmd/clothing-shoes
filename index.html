@@ -6,109 +6,311 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Savvy Scanner">
-  <title>Savvy Scanner</title>
+  <title>Savvy Scanner - Clothing-Shoes</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    .print-btn:active {
+    :root {
+      --bg: #0d0d0d;
+      --sf: #1a1a1a;
+      --sf2: #242424;
+      --bd: #333;
+      --tx: #fff;
+      --mu: #888;
+      --sv: #00e676;
+      --ac: #ff6b00;
+      --dw: #ff1744;
+      --gd: #ffab00;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--tx);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .hdr {
+      background: var(--sf);
+      border-bottom: 1px solid var(--bd);
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .hdr-tx {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .hdr-tx span {
+      color: var(--ac);
+    }
+
+    .scr {
+      display: none;
+      padding: 20px 16px;
+    }
+
+    .scr.on {
+      display: block;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 26px 0 16px;
+    }
+
+    .hero h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .hero p {
+      color: var(--mu);
+      font-size: 14px;
+    }
+
+    .cam-b {
+      width: 100%;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid var(--ac);
+      border-radius: 16px;
+      padding: 28px 20px;
+      cursor: pointer;
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    .cam-b:active {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+
+    .cam-ic {
+      font-size: 44px;
+      margin-bottom: 10px;
+    }
+
+    .cam-lb {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ac);
+      letter-spacing: 1px;
+    }
+
+    .ui {
+      width: 100%;
+      background: var(--sf);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: var(--tx);
+      font-size: 16px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .ui:focus {
+      border-color: var(--ac);
+    }
+
+    .ui::placeholder {
+      color: var(--mu);
+    }
+
+    .ui.error {
+      border-color: var(--dw);
+      background: rgba(255, 23, 68, 0.05);
+    }
+
+    .card {
+      background: var(--sf);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .lbl {
+      font-size: 11px;
+      color: var(--mu);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .required {
+      color: var(--dw);
+      font-weight: 800;
+    }
+
+    .val {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn:active:not(:disabled) {
       transform: scale(0.98);
       opacity: 0.9;
     }
-    :root{--bg:#0d0d0d;--sf:#1a1a1a;--sf2:#242424;--bd:#333;--tx:#fff;--mu:#888;--sv:#00e676;--dw:#ff1744;--ac:#ff6b00;--gd:#ffab00;}
-    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden;-webkit-text-size-adjust:100%}
-    .hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-    .hdr-lg{display:flex;align-items:center;gap:10px}
-    .lg-ic{width:38px;height:38px;border-radius:0;overflow:hidden;flex-shrink:0;background:transparent}.lg-ic img{width:100%;height:100%;object-fit:cover}
-    .lg-tx{font-size:20px;font-weight:800;letter-spacing:-.5px;line-height:1.1}.lg-pw{font-size:9px;color:var(--mu);font-weight:400;letter-spacing:.3px;margin-top:1px}
-    .lg-tx span{color:var(--ac)}
-    .cfg-b{background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer;padding:4px}
-    .scr{display:none;padding:20px 16px}.scr.on{display:block}
-    .hero{text-align:center;padding:26px 0 16px}
-    .hero h2{font-size:22px;font-weight:700;margin-bottom:5px}
-    .hero p{color:var(--mu);font-size:14px}
-    .cam-b{width:100%;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid var(--ac);border-radius:16px;padding:28px 20px;cursor:pointer;text-align:center;margin:16px 0}
-    .cam-b:active{opacity:.85;transform:scale(.98)}
-    .cam-ic{font-size:44px;margin-bottom:10px}
-    .cam-lb{font-size:15px;font-weight:700;color:var(--ac);letter-spacing:1px}
-    .cam-ht{font-size:12px;color:var(--mu);margin-top:5px}
-    .div-row{display:flex;align-items:center;gap:12px;margin:14px 0}
-    .dl{flex:1;height:1px;background:var(--bd)}
-    .dt{color:var(--mu);font-size:12px}
-    .ir{display:flex;gap:10px}
-    .ui{flex:1;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;color:var(--tx);font-size:16px;outline:none}
-    .ui:focus{border-color:var(--ac)}
-    .ui::placeholder{color:var(--mu)}
-    .sb{background:linear-gradient(135deg,#FF6B35,#E71D36);border:none;border-radius:10px;padding:14px 20px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:opacity .2s}
-    .sb.on{opacity:1}
-    #qr-video{width:100%;border-radius:12px;overflow:hidden}
-    .cam-st{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;color:var(--dw);font-size:14px;font-weight:700;cursor:pointer;margin-top:14px}
-    .lw{text-align:center;padding:60px 20px}
-    .sp{width:56px;height:56px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 20px}
-    @keyframes sp{to{transform:rotate(360deg)}}
-    #lp{font-size:16px;font-weight:600;margin-bottom:8px}
-    #ls{color:var(--mu);font-size:14px}
-    .badge{text-align:center;padding:14px;border-radius:12px;margin-bottom:12px;font-size:26px;font-weight:900;letter-spacing:2px}
-    .badge.sv{background:rgba(0,230,118,.1);border:2px solid var(--sv);color:var(--sv)}
-    .badge.dw{background:rgba(255,23,68,.1);border:2px solid var(--dw);color:var(--dw)}
-    .card{background:var(--sf);border-radius:12px;padding:14px;margin-bottom:10px}
-    .lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-    .val{font-size:14px;font-weight:500;line-height:1.4}
-    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
-    .pc{background:var(--sf);border-radius:12px;padding:12px 8px;text-align:center}
-    .pc .lbl{margin-bottom:6px}
-    .pc-num{font-size:20px;font-weight:800}
-    .pc-num.low{color:#64b5f6}.pc-num.avg{color:var(--gd)}.pc-num.bdl{color:var(--sv)}
-    .pc-sub{font-size:10px;color:var(--mu);margin-top:2px}
-    .cost-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .cost-in{flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-size:16px;outline:none}
-    .cost-in:focus{border-color:var(--gd)}
-    .calc-btn{background:var(--gd);border:none;border-radius:8px;padding:10px 16px;color:#000;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap}
-    .pack-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
-    .pack-table th{background:var(--sf2);padding:6px 4px;text-align:center;font-size:10px;color:var(--mu);text-transform:uppercase}
-    .pack-table td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--sf2)}
-    .pack-table tr.best td{background:rgba(0,230,118,.08);color:var(--sv);font-weight:700}
-    .add-btn{width:100%;background:var(--sv);border:none;border-radius:12px;padding:15px;color:#000;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px}
-    .ov-add-btn{width:100%;background:transparent;border:1px solid var(--mu);border-radius:12px;padding:13px;color:var(--mu);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px}
-    .ag-btn{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:13px;color:var(--tx);font-size:14px;font-weight:600;cursor:pointer}
-    .fab{position:fixed;bottom:28px;right:18px;background:linear-gradient(135deg,#FF6B35,#E71D36);border:none;border-radius:50px;padding:13px 18px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:none;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(255,107,0,.4);z-index:200}
-    .fab.on{display:flex}
-    .fbc{background:#fff;color:var(--ac);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
-    .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;overflow-y:auto;padding:20px 16px}
-    .ov.on{display:block}
-    .ovc{background:var(--sf);border-radius:16px;padding:20px;max-width:500px;margin:0 auto}
-    .ovh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-    .ovt{font-size:18px;font-weight:800}
-    .xb{background:none;border:none;color:var(--mu);font-size:24px;cursor:pointer}
-    .bi{background:var(--sf2);border-radius:10px;padding:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-    .bin{flex:1;min-width:0}
-    .bit{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .bis{font-size:11px;color:var(--mu);margin-top:2px;font-family:monospace}
-    .bip{font-size:16px;font-weight:800;color:var(--gd);margin:0 10px;flex-shrink:0}
-    .bdel{background:none;border:none;color:var(--dw);font-size:18px;cursor:pointer;padding:4px 8px}
-    .exp-b{width:100%;background:linear-gradient(135deg,var(--ac),var(--gd));border:none;border-radius:12px;padding:15px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:14px}
-    .clr-b{width:100%;background:none;border:1px solid var(--dw);border-radius:12px;padding:11px;color:var(--dw);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px}
-    .empty{text-align:center;padding:36px 20px;color:var(--mu);font-size:14px;line-height:1.7}
-    .sheets-btn{width:100%;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:12px;padding:15px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px;margin-top:14px}
-    .sheets-btn:active{opacity:.9;transform:scale(.98)}
-    .sheets-btn.loading{opacity:.6;pointer-events:none}
-    .modal-confirm{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;align-items:center;justify-content:center;padding:20px}
-    .modal-confirm.on{display:flex}
-    .modal-content{background:var(--sf);border-radius:16px;padding:20px;max-width:90vw;text-align:center}
-    .modal-icon{font-size:48px;margin-bottom:16px}
-    .modal-text{font-size:16px;font-weight:700;margin-bottom:8px}
-    .modal-subtext{font-size:14px;color:var(--mu);margin-bottom:20px}
-    .modal-btn{background:var(--ac);border:none;border-radius:10px;padding:12px 24px;color:#fff;font-weight:700;cursor:pointer}
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #FF6B35, #E71D36);
+    }
+
+    .btn-clear {
+      background: none;
+      border: 1px solid var(--bd);
+      color: var(--mu);
+    }
+
+    .error-box {
+      background: rgba(255, 23, 68, 0.1);
+      border: 1px solid var(--dw);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    .error-box.on {
+      display: block;
+    }
+
+    .error-icon {
+      color: var(--dw);
+      font-weight: 800;
+      margin-right: 8px;
+    }
+
+    .error-text {
+      color: var(--dw);
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    #qr-video {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .cam-st {
+      width: 100%;
+      background: var(--sf);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 14px;
+      color: var(--dw);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.on {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--sf);
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .modal-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .modal-text {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtext {
+      font-size: 14px;
+      color: var(--mu);
+      margin-bottom: 20px;
+    }
+
+    .modal-btn {
+      background: var(--ac);
+      border: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .row-half {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
+  <!-- HEADER -->
   <div class="hdr">
-    <div class="hdr-lg">
-      <div class="lg-tx">Savvy <span>Scanner</span></div>
-      <div class="lg-pw">clothing-shoes</div>
-    </div>
+    <div class="hdr-tx">Savvy <span>Scanner</span></div>
   </div>
 
+  <!-- PANTALLA PRINCIPAL -->
   <div class="scr on" id="mainScr">
     <div class="hero">
       <h2>Clothing & Shoes</h2>
@@ -125,92 +327,257 @@
       <button class="cam-st" id="stopBtn">Detener cámara</button>
     </div>
 
-    <div id="productContainer" style="display:none">
+    <!-- FORMULARIO DE PRODUCTO -->
+    <div id="productForm" style="display:none">
+      
+      <!-- CAJA DE ERRORES -->
+      <div class="error-box" id="errorBox">
+        <span class="error-icon">⚠️</span>
+        <span class="error-text" id="errorText"></span>
+      </div>
+
+      <!-- CÓDIGO DE BARRAS -->
       <div class="card">
         <div class="lbl">Código de Barras</div>
         <div class="val" id="barcodeVal">-</div>
       </div>
 
+      <!-- MARCA -->
       <div class="card">
-        <div class="lbl">Marca</div>
-        <input type="text" class="ui" id="brandInput" placeholder="Nike, Adidas...">
+        <div class="lbl">Marca <span class="required">*</span></div>
+        <input type="text" class="ui" id="brandInput" placeholder="Nike, Adidas, etc.">
       </div>
 
+      <!-- TÍTULO -->
       <div class="card">
-        <div class="lbl">Título</div>
+        <div class="lbl">Título <span class="required">*</span></div>
         <input type="text" class="ui" id="titleInput" placeholder="Polo Azul Talla M">
       </div>
 
+      <!-- DESCRIPCIÓN -->
       <div class="card">
-        <div class="lbl">Descripción</div>
-        <textarea class="ui" id="descInput" placeholder="Detalles..." style="resize:vertical;min-height:80px"></textarea>
+        <div class="lbl">Descripción <span class="required">*</span></div>
+        <textarea class="ui" id="descInput" placeholder="Detalles del producto..." style="resize:vertical;min-height:80px"></textarea>
       </div>
 
+      <!-- COLOR -->
       <div class="card">
-        <div class="lbl">Precio</div>
-        <input type="number" class="ui" id="priceInput" placeholder="49.99" step="0.01">
+        <div class="lbl">Color <span class="required">*</span></div>
+        <input type="text" class="ui" id="colorInput" placeholder="Azul, Rojo, Negro, etc.">
       </div>
 
-      <div class="card">
-        <div class="lbl">Localización</div>
-        <input type="text" class="ui" id="locationInput" placeholder="Estante C, Fila 3">
-      </div>
-
-      <div class="card">
-        <div class="lbl">Estado</div>
-        <select class="ui" id="statusInput">
-          <option value="No Listado">No Listado</option>
-          <option value="Listado">Listado</option>
-          <option value="Error">Error</option>
+      <!-- DRESS LENGTH (Vestidos) -->
+      <div class="card" id="dressLengthCard" style="display:none">
+        <div class="lbl">Largo del Vestido <span class="required">*</span></div>
+        <select class="ui" id="dressLengthInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Mini">Mini</option>
+          <option value="Knee">Hasta la rodilla</option>
+          <option value="Maxi">Maxi</option>
+          <option value="Tea">Tea length</option>
+          <option value="Floor">Floor length</option>
         </select>
       </div>
 
+      <!-- STYLE -->
+      <div class="card" id="styleCard" style="display:none">
+        <div class="lbl">Estilo <span class="required">*</span></div>
+        <input type="text" class="ui" id="styleInput" placeholder="Casual, Formal, Deportivo, etc.">
+      </div>
+
+      <!-- MATERIAL -->
       <div class="card">
-        <div class="lbl">Notas</div>
+        <div class="lbl">Material <span class="required">*</span></div>
+        <select class="ui" id="materialInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Algodón">Algodón</option>
+          <option value="Poliéster">Poliéster</option>
+          <option value="Lana">Lana</option>
+          <option value="Seda">Seda</option>
+          <option value="Mezcla">Mezcla</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <!-- TALLA -->
+      <div class="card">
+        <div class="lbl">Talla <span class="required">*</span></div>
+        <select class="ui" id="sizeInput">
+          <option value="">-- Selecciona --</option>
+          <option value="XS">XS</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+          <option value="XXL">XXL</option>
+          <option value="One Size">One Size</option>
+        </select>
+      </div>
+
+      <!-- ESTADO DE LA PRENDA -->
+      <div class="card">
+        <div class="lbl">Estado <span class="required">*</span></div>
+        <select class="ui" id="conditionInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Nuevo">Nuevo con etiqueta</option>
+          <option value="Nuevo sin etiqueta">Nuevo sin etiqueta</option>
+          <option value="Como nuevo">Como nuevo</option>
+          <option value="Muy bien">Muy bien</option>
+          <option value="Bien">Bien</option>
+        </select>
+      </div>
+
+      <!-- PRECIO -->
+      <div class="card">
+        <div class="lbl">Precio Estimado <span class="required">*</span></div>
+        <input type="number" class="ui" id="priceInput" placeholder="49.99" step="0.01">
+      </div>
+
+      <!-- LOCALIZACIÓN -->
+      <div class="card">
+        <div class="lbl">Localización en Bodega <span class="required">*</span></div>
+        <input type="text" class="ui" id="locationInput" placeholder="Estante C, Fila 3">
+      </div>
+
+      <!-- NOTAS OPCIONALES -->
+      <div class="card">
+        <div class="lbl">Notas (Opcional)</div>
         <textarea class="ui" id="notesInput" placeholder="Notas adicionales..." style="resize:vertical;min-height:60px"></textarea>
       </div>
 
-      <button class="sheets-btn" id="sheetsBtn">📊 Guardar en Google Sheets</button>
-      <button class="ag-btn" id="nextBtn">➕ Siguiente Producto</button>
-      <button class="clr-b" id="clearBtn">Limpiar</button>
+      <!-- BOTONES -->
+      <button class="btn btn-primary" id="nextBtn" disabled>➕ Siguiente Producto</button>
+      <button class="btn btn-clear" id="clearBtn">Limpiar</button>
     </div>
   </div>
 
   <!-- MODAL DE CONFIRMACIÓN -->
-  <div class="modal-confirm" id="confirmModal">
+  <div class="modal" id="confirmModal">
     <div class="modal-content">
       <div class="modal-icon" id="confirmIcon">✅</div>
-      <div class="modal-text" id="confirmText">¡Guardado!</div>
-      <div class="modal-subtext" id="confirmSubtext">El producto se guardó en Google Sheets</div>
+      <div class="modal-text" id="confirmText">¡Listo!</div>
+      <div class="modal-subtext" id="confirmSubtext">Producto registrado</div>
       <button class="modal-btn" id="confirmBtn">OK</button>
     </div>
   </div>
 
   <script>
-    const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyHMHRRi2vI3VZYLAQAGrzmp6TVae0H9WFk6YxD0WplhVVG-P-N7ZeavaX_bvT5A5Bu4Q/exec';
-
+    // ════════════════════════════════════════════════════════════════
+    // ELEMENTOS
+    // ════════════════════════════════════════════════════════════════
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const qrContainer = document.getElementById('qrContainer');
-    const productContainer = document.getElementById('productContainer');
-    const sheetsBtn = document.getElementById('sheetsBtn');
+    const productForm = document.getElementById('productForm');
     const nextBtn = document.getElementById('nextBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const errorBox = document.getElementById('errorBox');
+    const errorText = document.getElementById('errorText');
     const confirmModal = document.getElementById('confirmModal');
     const confirmBtn = document.getElementById('confirmBtn');
 
+    // Inputs
     const barcodeVal = document.getElementById('barcodeVal');
     const brandInput = document.getElementById('brandInput');
     const titleInput = document.getElementById('titleInput');
     const descInput = document.getElementById('descInput');
+    const colorInput = document.getElementById('colorInput');
+    const materialInput = document.getElementById('materialInput');
+    const sizeInput = document.getElementById('sizeInput');
+    const conditionInput = document.getElementById('conditionInput');
     const priceInput = document.getElementById('priceInput');
     const locationInput = document.getElementById('locationInput');
-    const statusInput = document.getElementById('statusInput');
     const notesInput = document.getElementById('notesInput');
+    const dressLengthInput = document.getElementById('dressLengthInput');
+    const styleInput = document.getElementById('styleInput');
+    const dressLengthCard = document.getElementById('dressLengthCard');
+    const styleCard = document.getElementById('styleCard');
 
     let currentBarcode = '';
     let html5QrcodeScanner = null;
 
+    // ════════════════════════════════════════════════════════════════
+    // CAMPOS REQUERIDOS
+    // ════════════════════════════════════════════════════════════════
+    const requiredFields = [
+      { id: 'brandInput', name: 'Marca' },
+      { id: 'titleInput', name: 'Título' },
+      { id: 'descInput', name: 'Descripción' },
+      { id: 'colorInput', name: 'Color' },
+      { id: 'materialInput', name: 'Material' },
+      { id: 'sizeInput', name: 'Talla' },
+      { id: 'conditionInput', name: 'Estado' },
+      { id: 'priceInput', name: 'Precio' },
+      { id: 'locationInput', name: 'Localización' }
+    ];
+
+    // ════════════════════════════════════════════════════════════════
+    // VALIDACIÓN EN TIEMPO REAL
+    // ════════════════════════════════════════════════════════════════
+    function validateForm() {
+      const missing = [];
+
+      requiredFields.forEach(field => {
+        const input = document.getElementById(field.id);
+        const value = input.value.trim();
+
+        if (!value) {
+          missing.push(field.name);
+          input.classList.add('error');
+        } else {
+          input.classList.remove('error');
+        }
+      });
+
+      // Validar Dress Length si es visible
+      if (dressLengthCard.style.display !== 'none') {
+        if (!dressLengthInput.value) {
+          missing.push('Largo del Vestido');
+          dressLengthInput.classList.add('error');
+        } else {
+          dressLengthInput.classList.remove('error');
+        }
+      }
+
+      // Validar Style si es visible
+      if (styleCard.style.display !== 'none') {
+        if (!styleInput.value.trim()) {
+          missing.push('Estilo');
+          styleInput.classList.add('error');
+        } else {
+          styleInput.classList.remove('error');
+        }
+      }
+
+      // Mostrar errores o habilitar botón
+      if (missing.length > 0) {
+        showError('Falta completar: ' + missing.join(', '));
+        nextBtn.disabled = true;
+        return false;
+      } else {
+        errorBox.classList.remove('on');
+        nextBtn.disabled = false;
+        return true;
+      }
+    }
+
+    function showError(message) {
+      errorText.textContent = message;
+      errorBox.classList.add('on');
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS PARA VALIDACIÓN
+    // ════════════════════════════════════════════════════════════════
+    const allInputs = document.querySelectorAll('.ui');
+    allInputs.forEach(input => {
+      input.addEventListener('input', validateForm);
+      input.addEventListener('change', validateForm);
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    // CÁMARA Y QR
+    // ════════════════════════════════════════════════════════════════
     startBtn.addEventListener('click', () => {
       qrContainer.style.display = 'block';
       startBtn.style.display = 'none';
@@ -224,7 +591,8 @@
           barcodeVal.textContent = decodedText;
           html5QrcodeScanner.stop();
           qrContainer.style.display = 'none';
-          productContainer.style.display = 'block';
+          productForm.style.display = 'block';
+          validateForm();
         },
         (error) => console.warn('QR error:', error)
       );
@@ -238,57 +606,46 @@
       }
     });
 
-    sheetsBtn.addEventListener('click', async () => {
-      sheetsBtn.classList.add('loading');
-      sheetsBtn.textContent = 'Guardando...';
-
-      const params = new URLSearchParams({
-        marca: brandInput.value || '',
-        titulo: titleInput.value || '',
-        descripcion: descInput.value || '',
-        precio: priceInput.value || '',
-        localizacion: locationInput.value || '',
-        foto: '',
-        upc: currentBarcode,
-        estado: statusInput.value || '',
-        notas: notesInput.value || ''
-      });
-
-      try {
-        const response = await fetch(SHEETS_URL, { method: 'POST', body: params });
-        const result = await response.json();
-
-        if (result.success) {
-          showConfirm('✅', '¡Guardado!', 'El producto se guardó en Google Sheets');
-        } else {
-          showConfirm('❌', 'Error', result.message || 'No se pudo guardar');
-        }
-      } catch (error) {
-        showConfirm('❌', 'Error', error.message);
-      }
-
-      sheetsBtn.classList.remove('loading');
-      sheetsBtn.textContent = '📊 Guardar en Google Sheets';
-    });
-
+    // ════════════════════════════════════════════════════════════════
+    // BOTONES
+    // ════════════════════════════════════════════════════════════════
     nextBtn.addEventListener('click', () => {
-      clearForm();
-      productContainer.style.display = 'none';
-      startBtn.style.display = 'block';
+      if (validateForm()) {
+        showConfirm('✅', '¡Listo!', 'Producto registrado. Preparando siguiente...');
+        setTimeout(() => {
+          clearForm();
+          productForm.style.display = 'none';
+          startBtn.style.display = 'block';
+          confirmModal.classList.remove('on');
+        }, 1500);
+      }
     });
 
     clearBtn.addEventListener('click', clearForm);
+
+    confirmBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('on');
+    });
 
     function clearForm() {
       brandInput.value = '';
       titleInput.value = '';
       descInput.value = '';
+      colorInput.value = '';
+      materialInput.value = '';
+      sizeInput.value = '';
+      conditionInput.value = '';
       priceInput.value = '';
       locationInput.value = '';
-      statusInput.value = 'No Listado';
       notesInput.value = '';
+      dressLengthInput.value = '';
+      styleInput.value = '';
       barcodeVal.textContent = '-';
       currentBarcode = '';
+      errorBox.classList.remove('on');
+      
+      allInputs.forEach(input => input.classList.remove('error'));
+      nextBtn.disabled = true;
     }
 
     function showConfirm(icon, text, subtext) {
@@ -298,11 +655,7 @@
       confirmModal.classList.add('on');
     }
 
-    confirmBtn.addEventListener('click', () => {
-      confirmModal.classList.remove('on');
-    });
-
-    console.log('✅ Clothing-Shoes con Google Sheets cargado');
+    console.log('✅ Clothing-Shoes con validación de campos cargado');
   </script>
 </body>
 </html>
