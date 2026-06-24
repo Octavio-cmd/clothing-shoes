@@ -4277,12 +4277,24 @@ async function clTestPrint() {
   localStorage.setItem('savvy_printer_ip', ip);
   if (statusEl) { statusEl.textContent = '⏳ Testing...'; statusEl.style.color = 'var(--mu)'; }
   try {
-    var res = await fetch('http://' + ip + ':5001/test', { signal: AbortSignal.timeout(5000) });
-    var d = await res.json();
-    if (statusEl) { statusEl.textContent = '✅ Connected! Test label sent.'; statusEl.style.color = 'var(--sv)'; }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('http://' + ip + ':5001/test', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      if (statusEl) { statusEl.textContent = '❌ Server returned error: ' + res.status; statusEl.style.color = 'var(--dw)'; }
+      return;
+    }
+    const d = await res.json();
+    if (statusEl) { statusEl.textContent = '✅ Connected! PC is online.'; statusEl.style.color = 'var(--sv)'; }
   } catch(e) {
-    if (statusEl) { statusEl.textContent = '❌ Cannot reach PC at ' + ip + ':5001'; statusEl.style.color = 'var(--dw)'; }
+    if (statusEl) { 
+      const msg = e.name === 'AbortError' ? 'Timeout — PC not responding' : 'Cannot reach PC at ' + ip + ':5001';
+      statusEl.textContent = '❌ ' + msg; 
+      statusEl.style.color = 'var(--dw)'; 
+    }
   }
+}
 }
 
 // ── Recalcular total cuando usuario ingresa el envío ──────────
