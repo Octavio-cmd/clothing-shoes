@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Savvy Scanner">
-  <title>Savvy Scanner - Clothing-Shoes</title>
+  <title>Savvy Scanner</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
@@ -43,24 +43,43 @@
       background: var(--sf);
       border-bottom: 1px solid var(--bd);
       padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
-    .hdr-tx {
+    .hdr-lg {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .lg-tx {
       font-size: 18px;
       font-weight: 800;
       letter-spacing: -0.5px;
     }
 
-    .hdr-tx span {
+    .lg-tx span {
       color: var(--ac);
+    }
+
+    .hdr-btn {
+      background: none;
+      border: none;
+      color: var(--mu);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
     }
 
     .scr {
       display: none;
       padding: 20px 16px;
+      min-height: calc(100vh - 80px);
     }
 
     .scr.on {
@@ -81,6 +100,45 @@
     .hero p {
       color: var(--mu);
       font-size: 14px;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 32px;
+    }
+
+    .menu-card {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid var(--ac);
+      border-radius: 16px;
+      padding: 28px 20px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .menu-card:active {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+
+    .menu-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .menu-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ac);
+      margin-bottom: 6px;
+    }
+
+    .menu-desc {
+      font-size: 13px;
+      color: var(--mu);
     }
 
     .cam-b {
@@ -127,15 +185,6 @@
       border-color: var(--ac);
     }
 
-    .ui::placeholder {
-      color: var(--mu);
-    }
-
-    .ui.error {
-      border-color: var(--dw);
-      background: rgba(255, 23, 68, 0.05);
-    }
-
     .card {
       background: var(--sf);
       border-radius: 12px;
@@ -149,14 +198,6 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .required {
-      color: var(--dw);
-      font-weight: 800;
     }
 
     .val {
@@ -179,18 +220,17 @@
       transition: all 0.2s;
     }
 
-    .btn:active:not(:disabled) {
+    .btn:active {
       transform: scale(0.98);
       opacity: 0.9;
     }
 
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
     .btn-primary {
       background: linear-gradient(135deg, #FF6B35, #E71D36);
+    }
+
+    .btn-sheets {
+      background: linear-gradient(135deg, #4285F4, #34A853);
     }
 
     .btn-clear {
@@ -199,49 +239,13 @@
       color: var(--mu);
     }
 
-    .error-box {
-      background: rgba(255, 23, 68, 0.1);
-      border: 1px solid var(--dw);
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
-      display: none;
-    }
-
-    .error-box.on {
-      display: block;
-    }
-
-    .error-icon {
-      color: var(--dw);
-      font-weight: 800;
-      margin-right: 8px;
-    }
-
-    .error-text {
-      color: var(--dw);
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.4;
-    }
-
-    #qr-video {
+    .img-preview {
       width: 100%;
+      max-width: 100%;
       border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .cam-st {
-      width: 100%;
-      background: var(--sf);
-      border: 1px solid var(--bd);
-      border-radius: 10px;
-      padding: 14px;
-      color: var(--dw);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 14px;
+      margin: 12px 0;
+      max-height: 300px;
+      object-fit: cover;
     }
 
     .modal {
@@ -294,368 +298,621 @@
       cursor: pointer;
     }
 
-    .row {
+    #qr-video {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .photo-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .photo-modal.on {
       display: flex;
+    }
+
+    .photo-modal-content {
+      background: var(--sf);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 300px;
+      text-align: center;
+    }
+
+    .photo-modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .photo-modal-btns {
+      display: flex;
+      flex-direction: column;
       gap: 10px;
     }
 
-    .row-half {
-      flex: 1;
+    .photo-modal-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .photo-modal-btn.camera {
+      background: linear-gradient(135deg, #FF6B35, #E71D36);
+    }
+
+    .photo-modal-btn.gallery {
+      background: linear-gradient(135deg, #4285F4, #34A853);
+    }
+
+    .photo-modal-btn.cancel {
+      background: var(--bd);
+      color: var(--mu);
     }
   </style>
 </head>
 <body>
   <!-- HEADER -->
   <div class="hdr">
-    <div class="hdr-tx">Savvy <span>Scanner</span></div>
+    <div class="hdr-lg">
+      <span style="font-size: 24px;" id="headerIcon">🔍</span>
+      <div class="lg-tx">Savvy <span>Scanner</span></div>
+    </div>
+    <button class="hdr-btn" id="backBtn" style="display: none;">←</button>
   </div>
 
-  <!-- PANTALLA PRINCIPAL -->
-  <div class="scr on" id="mainScr">
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- PANTALLA 1: MENÚ PRINCIPAL -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="scr on" id="menuScr">
     <div class="hero">
-      <h2>Clothing & Shoes</h2>
-      <p>Escanea productos de ropa y zapatos</p>
+      <h2>¿Qué quieres hacer?</h2>
+      <p>Elige un módulo para empezar</p>
     </div>
 
-    <div class="cam-b" id="startBtn">
-      <div class="cam-ic">📷</div>
-      <div class="cam-lb">ESCANEAR CÓDIGO</div>
-    </div>
-
-    <div id="qrContainer" style="display:none">
-      <video id="qr-video"></video>
-      <button class="cam-st" id="stopBtn">Detener cámara</button>
-    </div>
-
-    <!-- FORMULARIO DE PRODUCTO -->
-    <div id="productForm" style="display:none">
-      
-      <!-- CAJA DE ERRORES -->
-      <div class="error-box" id="errorBox">
-        <span class="error-icon">⚠️</span>
-        <span class="error-text" id="errorText"></span>
+    <div class="menu-grid">
+      <div class="menu-card" id="clothingBtn">
+        <div class="menu-icon">👕</div>
+        <div class="menu-title">Clothing-Shoes</div>
+        <div class="menu-desc">Escanea ropa y zapatos</div>
       </div>
 
-      <!-- CÓDIGO DE BARRAS -->
-      <div class="card">
-        <div class="lbl">Código de Barras</div>
-        <div class="val" id="barcodeVal">-</div>
+      <div class="menu-card" id="productBtn">
+        <div class="menu-icon">📦</div>
+        <div class="menu-title">Product Scanner</div>
+        <div class="menu-desc">Fondo transparente</div>
       </div>
-
-      <!-- MARCA -->
-      <div class="card">
-        <div class="lbl">Marca <span class="required">*</span></div>
-        <input type="text" class="ui" id="brandInput" placeholder="Nike, Adidas, etc.">
-      </div>
-
-      <!-- TÍTULO -->
-      <div class="card">
-        <div class="lbl">Título <span class="required">*</span></div>
-        <input type="text" class="ui" id="titleInput" placeholder="Polo Azul Talla M">
-      </div>
-
-      <!-- DESCRIPCIÓN -->
-      <div class="card">
-        <div class="lbl">Descripción <span class="required">*</span></div>
-        <textarea class="ui" id="descInput" placeholder="Detalles del producto..." style="resize:vertical;min-height:80px"></textarea>
-      </div>
-
-      <!-- COLOR -->
-      <div class="card">
-        <div class="lbl">Color <span class="required">*</span></div>
-        <input type="text" class="ui" id="colorInput" placeholder="Azul, Rojo, Negro, etc.">
-      </div>
-
-      <!-- DRESS LENGTH (Vestidos) -->
-      <div class="card" id="dressLengthCard" style="display:none">
-        <div class="lbl">Largo del Vestido <span class="required">*</span></div>
-        <select class="ui" id="dressLengthInput">
-          <option value="">-- Selecciona --</option>
-          <option value="Mini">Mini</option>
-          <option value="Knee">Hasta la rodilla</option>
-          <option value="Maxi">Maxi</option>
-          <option value="Tea">Tea length</option>
-          <option value="Floor">Floor length</option>
-        </select>
-      </div>
-
-      <!-- STYLE -->
-      <div class="card" id="styleCard" style="display:none">
-        <div class="lbl">Estilo <span class="required">*</span></div>
-        <input type="text" class="ui" id="styleInput" placeholder="Casual, Formal, Deportivo, etc.">
-      </div>
-
-      <!-- MATERIAL -->
-      <div class="card">
-        <div class="lbl">Material <span class="required">*</span></div>
-        <select class="ui" id="materialInput">
-          <option value="">-- Selecciona --</option>
-          <option value="Algodón">Algodón</option>
-          <option value="Poliéster">Poliéster</option>
-          <option value="Lana">Lana</option>
-          <option value="Seda">Seda</option>
-          <option value="Mezcla">Mezcla</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-
-      <!-- TALLA -->
-      <div class="card">
-        <div class="lbl">Talla <span class="required">*</span></div>
-        <select class="ui" id="sizeInput">
-          <option value="">-- Selecciona --</option>
-          <option value="XS">XS</option>
-          <option value="S">S</option>
-          <option value="M">M</option>
-          <option value="L">L</option>
-          <option value="XL">XL</option>
-          <option value="XXL">XXL</option>
-          <option value="One Size">One Size</option>
-        </select>
-      </div>
-
-      <!-- ESTADO DE LA PRENDA -->
-      <div class="card">
-        <div class="lbl">Estado <span class="required">*</span></div>
-        <select class="ui" id="conditionInput">
-          <option value="">-- Selecciona --</option>
-          <option value="Nuevo">Nuevo con etiqueta</option>
-          <option value="Nuevo sin etiqueta">Nuevo sin etiqueta</option>
-          <option value="Como nuevo">Como nuevo</option>
-          <option value="Muy bien">Muy bien</option>
-          <option value="Bien">Bien</option>
-        </select>
-      </div>
-
-      <!-- PRECIO -->
-      <div class="card">
-        <div class="lbl">Precio Estimado <span class="required">*</span></div>
-        <input type="number" class="ui" id="priceInput" placeholder="49.99" step="0.01">
-      </div>
-
-      <!-- LOCALIZACIÓN -->
-      <div class="card">
-        <div class="lbl">Localización en Bodega <span class="required">*</span></div>
-        <input type="text" class="ui" id="locationInput" placeholder="Estante C, Fila 3">
-      </div>
-
-      <!-- NOTAS OPCIONALES -->
-      <div class="card">
-        <div class="lbl">Notas (Opcional)</div>
-        <textarea class="ui" id="notesInput" placeholder="Notas adicionales..." style="resize:vertical;min-height:60px"></textarea>
-      </div>
-
-      <!-- BOTONES -->
-      <button class="btn btn-primary" id="nextBtn" disabled>➕ Siguiente Producto</button>
-      <button class="btn btn-clear" id="clearBtn">Limpiar</button>
     </div>
   </div>
 
-  <!-- MODAL DE CONFIRMACIÓN -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- PANTALLA 2: CLOTHING-SHOES -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="scr" id="clothingScr">
+    <div class="hero">
+      <h2>Escanea Productos</h2>
+      <p>Ropa y Zapatos</p>
+    </div>
+
+    <div class="cam-b" id="clothStartCamBtn">
+      <div class="cam-ic">📷</div>
+      <div class="cam-lb">INICIAR CÁMARA</div>
+    </div>
+
+    <div id="clothQrContainer" style="display: none;">
+      <video id="cloth-qr-video"></video>
+      <button class="btn btn-primary" id="clothStopCamBtn" style="margin-top: 12px;">Detener Cámara</button>
+    </div>
+
+    <div id="clothProductInfo" style="display: none;">
+      <div class="card">
+        <div class="lbl">UPC / Código</div>
+        <div class="val" id="clothUpcVal">-</div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Foto</div>
+        <img id="clothProductImg" class="img-preview" style="display: none;">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Marca</div>
+        <input type="text" class="ui" id="clothMarcaInput" placeholder="Ej: Nike">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Título</div>
+        <input type="text" class="ui" id="clothTituloInput" placeholder="Ej: Polo Azul Talla M">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Descripción</div>
+        <textarea class="ui" id="clothDescripcionInput" placeholder="Detalles" style="resize: vertical; min-height: 60px;"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Precio</div>
+        <input type="number" class="ui" id="clothPrecioInput" placeholder="49.99" step="0.01">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Localización</div>
+        <input type="text" class="ui" id="clothLocalizacionInput" placeholder="Estante C, Fila 3">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Estado</div>
+        <select class="ui" id="clothEstadoInput">
+          <option value="No Listado">⏳ No Listado</option>
+          <option value="Listado">✅ Listado</option>
+          <option value="Error">❌ Error</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Notas</div>
+        <textarea class="ui" id="clothNotasInput" placeholder="Notas" style="resize: vertical; min-height: 60px;"></textarea>
+      </div>
+
+      <button class="btn btn-sheets" id="clothSaveSheetBtn">📊 Guardar en Google Sheets</button>
+      <button class="btn btn-primary" id="clothNextBtn">➕ Siguiente</button>
+      <button class="btn btn-clear" id="clothClearBtn">Limpiar</button>
+    </div>
+
+    <!-- MODAL: SELECCIONAR CÁMARA O GALERÍA -->
+    <div class="photo-modal" id="clothPhotoModal">
+      <div class="photo-modal-content">
+        <div class="photo-modal-title">Capturar Foto</div>
+        <div class="photo-modal-btns">
+          <button class="photo-modal-btn camera" id="clothPhotoCameraBtn">📸 Cámara</button>
+          <button class="photo-modal-btn gallery" id="clothPhotoGalleryBtn">🖼️ Galería</button>
+          <button class="photo-modal-btn cancel" id="clothPhotoCancelBtn">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="clothPhotoInput" accept="image/*" style="display: none;">
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- PANTALLA 3: PRODUCT SCANNER -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="scr" id="productScr">
+    <div class="hero">
+      <h2>Product Scanner</h2>
+      <p>Fondo Transparente</p>
+    </div>
+
+    <div class="cam-b" id="prodStartCamBtn">
+      <div class="cam-ic">📸</div>
+      <div class="cam-lb">TOMAR FOTO</div>
+    </div>
+
+    <div id="prodProductInfo" style="display: none;">
+      <div class="card">
+        <div class="lbl">Foto Procesada</div>
+        <img id="prodProductImg" class="img-preview" style="display: none;">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Marca</div>
+        <input type="text" class="ui" id="prodMarcaInput" placeholder="Ej: Nike">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Título</div>
+        <input type="text" class="ui" id="prodTituloInput" placeholder="Producto">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Descripción</div>
+        <textarea class="ui" id="prodDescripcionInput" placeholder="Detalles" style="resize: vertical; min-height: 60px;"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Precio</div>
+        <input type="number" class="ui" id="prodPrecioInput" placeholder="49.99" step="0.01">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Localización</div>
+        <input type="text" class="ui" id="prodLocalizacionInput" placeholder="Ubicación">
+      </div>
+
+      <div class="card">
+        <div class="lbl">Estado</div>
+        <select class="ui" id="prodEstadoInput">
+          <option value="No Listado">⏳ No Listado</option>
+          <option value="Listado">✅ Listado</option>
+          <option value="Error">❌ Error</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Notas</div>
+        <textarea class="ui" id="prodNotasInput" placeholder="Notas" style="resize: vertical; min-height: 60px;"></textarea>
+      </div>
+
+      <button class="btn btn-sheets" id="prodSaveSheetBtn">📊 Guardar en Google Sheets</button>
+      <button class="btn btn-primary" id="prodNextBtn">➕ Siguiente</button>
+      <button class="btn btn-clear" id="prodClearBtn">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- MODAL -->
   <div class="modal" id="confirmModal">
     <div class="modal-content">
-      <div class="modal-icon" id="confirmIcon">✅</div>
-      <div class="modal-text" id="confirmText">¡Listo!</div>
-      <div class="modal-subtext" id="confirmSubtext">Producto registrado</div>
-      <button class="modal-btn" id="confirmBtn">OK</button>
+      <div class="modal-icon" id="modalIcon">✅</div>
+      <div class="modal-text" id="modalText">¡Guardado!</div>
+      <div class="modal-subtext" id="modalSubtext">Se guardó en Google Sheets</div>
+      <button class="modal-btn" id="modalBtn">OK</button>
     </div>
   </div>
 
   <script>
     // ════════════════════════════════════════════════════════════════
-    // ELEMENTOS
+    // CONFIGURACIÓN
     // ════════════════════════════════════════════════════════════════
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const qrContainer = document.getElementById('qrContainer');
-    const productForm = document.getElementById('productForm');
-    const nextBtn = document.getElementById('nextBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const errorBox = document.getElementById('errorBox');
-    const errorText = document.getElementById('errorText');
-    const confirmModal = document.getElementById('confirmModal');
-    const confirmBtn = document.getElementById('confirmBtn');
-
-    // Inputs
-    const barcodeVal = document.getElementById('barcodeVal');
-    const brandInput = document.getElementById('brandInput');
-    const titleInput = document.getElementById('titleInput');
-    const descInput = document.getElementById('descInput');
-    const colorInput = document.getElementById('colorInput');
-    const materialInput = document.getElementById('materialInput');
-    const sizeInput = document.getElementById('sizeInput');
-    const conditionInput = document.getElementById('conditionInput');
-    const priceInput = document.getElementById('priceInput');
-    const locationInput = document.getElementById('locationInput');
-    const notesInput = document.getElementById('notesInput');
-    const dressLengthInput = document.getElementById('dressLengthInput');
-    const styleInput = document.getElementById('styleInput');
-    const dressLengthCard = document.getElementById('dressLengthCard');
-    const styleCard = document.getElementById('styleCard');
-
-    let currentBarcode = '';
-    let html5QrcodeScanner = null;
+    const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyHMHRRi2vI3VZYLAQAGrzmp6TVae0H9WFk6YxD0WplhVVG-P-N7ZeavaX_bvT5A5Bu4Q/exec';
+    const IMGBB_KEY = '1e8ecea2fc2ea918caca74369928ef63';
 
     // ════════════════════════════════════════════════════════════════
-    // CAMPOS REQUERIDOS
+    // NAVEGACIÓN
     // ════════════════════════════════════════════════════════════════
-    const requiredFields = [
-      { id: 'brandInput', name: 'Marca' },
-      { id: 'titleInput', name: 'Título' },
-      { id: 'descInput', name: 'Descripción' },
-      { id: 'colorInput', name: 'Color' },
-      { id: 'materialInput', name: 'Material' },
-      { id: 'sizeInput', name: 'Talla' },
-      { id: 'conditionInput', name: 'Estado' },
-      { id: 'priceInput', name: 'Precio' },
-      { id: 'locationInput', name: 'Localización' }
-    ];
+    const menuScr = document.getElementById('menuScr');
+    const clothingScr = document.getElementById('clothingScr');
+    const productScr = document.getElementById('productScr');
+    const backBtn = document.getElementById('backBtn');
+    const headerIcon = document.getElementById('headerIcon');
+
+    const clothingBtn = document.getElementById('clothingBtn');
+    const productBtn = document.getElementById('productBtn');
+
+    function goToMenu() {
+      menuScr.classList.add('on');
+      clothingScr.classList.remove('on');
+      productScr.classList.remove('on');
+      backBtn.style.display = 'none';
+      headerIcon.textContent = '🔍';
+    }
+
+    function goToClothing() {
+      menuScr.classList.remove('on');
+      clothingScr.classList.add('on');
+      productScr.classList.remove('on');
+      backBtn.style.display = 'block';
+      headerIcon.textContent = '👕';
+    }
+
+    function goToProduct() {
+      menuScr.classList.remove('on');
+      clothingScr.classList.remove('on');
+      productScr.classList.add('on');
+      backBtn.style.display = 'block';
+      headerIcon.textContent = '📦';
+    }
+
+    clothingBtn.addEventListener('click', goToClothing);
+    productBtn.addEventListener('click', goToProduct);
+    backBtn.addEventListener('click', goToMenu);
 
     // ════════════════════════════════════════════════════════════════
-    // VALIDACIÓN EN TIEMPO REAL
+    // CLOTHING-SHOES MODULE
     // ════════════════════════════════════════════════════════════════
-    function validateForm() {
-      const missing = [];
+    const clothStartCamBtn = document.getElementById('clothStartCamBtn');
+    const clothStopCamBtn = document.getElementById('clothStopCamBtn');
+    const clothQrContainer = document.getElementById('clothQrContainer');
+    const clothProductInfo = document.getElementById('clothProductInfo');
+    const clothSaveSheetBtn = document.getElementById('clothSaveSheetBtn');
+    const clothNextBtn = document.getElementById('clothNextBtn');
+    const clothClearBtn = document.getElementById('clothClearBtn');
 
-      requiredFields.forEach(field => {
-        const input = document.getElementById(field.id);
-        const value = input.value.trim();
+    const clothMarcaInput = document.getElementById('clothMarcaInput');
+    const clothTituloInput = document.getElementById('clothTituloInput');
+    const clothDescripcionInput = document.getElementById('clothDescripcionInput');
+    const clothPrecioInput = document.getElementById('clothPrecioInput');
+    const clothLocalizacionInput = document.getElementById('clothLocalizacionInput');
+    const clothEstadoInput = document.getElementById('clothEstadoInput');
+    const clothNotasInput = document.getElementById('clothNotasInput');
+    const clothUpcVal = document.getElementById('clothUpcVal');
+    const clothProductImg = document.getElementById('clothProductImg');
 
-        if (!value) {
-          missing.push(field.name);
-          input.classList.add('error');
-        } else {
-          input.classList.remove('error');
-        }
+    let clothCurrentUPC = '';
+    let clothCurrentPhotoURL = '';
+    let clothQrcodeScanner = null;
+
+    clothStartCamBtn.addEventListener('click', () => {
+      document.getElementById('clothPhotoModal').classList.add('on');
+    });
+
+    // Eventos del modal de foto
+    const clothPhotoModal = document.getElementById('clothPhotoModal');
+    const clothPhotoCameraBtn = document.getElementById('clothPhotoCameraBtn');
+    const clothPhotoGalleryBtn = document.getElementById('clothPhotoGalleryBtn');
+    const clothPhotoCancelBtn = document.getElementById('clothPhotoCancelBtn');
+    const clothPhotoInput = document.getElementById('clothPhotoInput');
+
+    clothPhotoCameraBtn.addEventListener('click', () => {
+      clothPhotoModal.classList.remove('on');
+      clothTakePhoto();
+    });
+
+    clothPhotoGalleryBtn.addEventListener('click', () => {
+      clothPhotoModal.classList.remove('on');
+      clothPhotoInput.click();
+    });
+
+    clothPhotoCancelBtn.addEventListener('click', () => {
+      clothPhotoModal.classList.remove('on');
+    });
+
+    clothPhotoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const blob = new Blob([event.target.result], { type: 'image/jpeg' });
+          uploadPhotoToImgBB(blob, 'cloth');
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    clothStopCamBtn.addEventListener('click', () => {
+      if (clothQrcodeScanner) {
+        clothQrcodeScanner.stop();
+        clothQrContainer.style.display = 'none';
+        clothStartCamBtn.style.display = 'block';
+      }
+    });
+
+    function clothTakePhoto() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then((stream) => {
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.play();
+
+          setTimeout(() => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            stream.getTracks().forEach(track => track.stop());
+
+            canvas.toBlob((blob) => {
+              uploadPhotoToImgBB(blob, 'cloth');
+            }, 'image/jpeg', 0.8);
+          }, 500);
+        })
+        .catch((error) => {
+          console.error('Error cámara:', error);
+        });
+    }
+
+    clothSaveSheetBtn.addEventListener('click', async () => {
+      clothSaveSheetBtn.classList.add('loading');
+      clothSaveSheetBtn.textContent = 'Guardando...';
+
+      const params = new URLSearchParams({
+        marca: clothMarcaInput.value || '',
+        titulo: clothTituloInput.value || '',
+        descripcion: clothDescripcionInput.value || '',
+        precio: clothPrecioInput.value || '',
+        localizacion: clothLocalizacionInput.value || '',
+        foto: clothCurrentPhotoURL,
+        upc: clothCurrentUPC,
+        estado: clothEstadoInput.value || '',
+        notas: clothNotasInput.value || ''
       });
 
-      // Validar Dress Length si es visible
-      if (dressLengthCard.style.display !== 'none') {
-        if (!dressLengthInput.value) {
-          missing.push('Largo del Vestido');
-          dressLengthInput.classList.add('error');
+      try {
+        const response = await fetch(SHEETS_API_URL, { method: 'POST', body: params });
+        const result = await response.json();
+
+        if (result.success) {
+          showModal('✅', '¡Guardado!', 'Se guardó en Google Sheets');
         } else {
-          dressLengthInput.classList.remove('error');
+          showModal('❌', 'Error', 'No se pudo guardar');
         }
+      } catch (error) {
+        showModal('❌', 'Error', error.message);
       }
 
-      // Validar Style si es visible
-      if (styleCard.style.display !== 'none') {
-        if (!styleInput.value.trim()) {
-          missing.push('Estilo');
-          styleInput.classList.add('error');
+      clothSaveSheetBtn.classList.remove('loading');
+      clothSaveSheetBtn.textContent = '📊 Guardar en Google Sheets';
+    });
+
+    clothNextBtn.addEventListener('click', () => {
+      clothClearForm();
+      clothProductInfo.style.display = 'none';
+      clothStartCamBtn.style.display = 'block';
+    });
+
+    clothClearBtn.addEventListener('click', clothClearForm);
+
+    function clothClearForm() {
+      clothMarcaInput.value = '';
+      clothTituloInput.value = '';
+      clothDescripcionInput.value = '';
+      clothPrecioInput.value = '';
+      clothLocalizacionInput.value = '';
+      clothEstadoInput.value = 'No Listado';
+      clothNotasInput.value = '';
+      clothUpcVal.textContent = '-';
+      clothProductImg.style.display = 'none';
+      clothCurrentUPC = '';
+      clothCurrentPhotoURL = '';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // PRODUCT SCANNER MODULE
+    // ════════════════════════════════════════════════════════════════
+    const prodStartCamBtn = document.getElementById('prodStartCamBtn');
+    const prodProductInfo = document.getElementById('prodProductInfo');
+    const prodSaveSheetBtn = document.getElementById('prodSaveSheetBtn');
+    const prodNextBtn = document.getElementById('prodNextBtn');
+    const prodClearBtn = document.getElementById('prodClearBtn');
+
+    const prodMarcaInput = document.getElementById('prodMarcaInput');
+    const prodTituloInput = document.getElementById('prodTituloInput');
+    const prodDescripcionInput = document.getElementById('prodDescripcionInput');
+    const prodPrecioInput = document.getElementById('prodPrecioInput');
+    const prodLocalizacionInput = document.getElementById('prodLocalizacionInput');
+    const prodEstadoInput = document.getElementById('prodEstadoInput');
+    const prodNotasInput = document.getElementById('prodNotasInput');
+    const prodProductImg = document.getElementById('prodProductImg');
+
+    let prodCurrentPhotoURL = '';
+
+    prodStartCamBtn.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then((stream) => {
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.play();
+
+          setTimeout(() => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            stream.getTracks().forEach(track => track.stop());
+
+            canvas.toBlob((blob) => {
+              uploadPhotoToImgBB(blob, 'prod');
+            }, 'image/jpeg', 0.8);
+          }, 500);
+        })
+        .catch((error) => {
+          console.error('Error cámara:', error);
+        });
+    });
+
+    prodSaveSheetBtn.addEventListener('click', async () => {
+      prodSaveSheetBtn.classList.add('loading');
+      prodSaveSheetBtn.textContent = 'Guardando...';
+
+      const params = new URLSearchParams({
+        marca: prodMarcaInput.value || '',
+        titulo: prodTituloInput.value || '',
+        descripcion: prodDescripcionInput.value || '',
+        precio: prodPrecioInput.value || '',
+        localizacion: prodLocalizacionInput.value || '',
+        foto: prodCurrentPhotoURL,
+        upc: '',
+        estado: prodEstadoInput.value || '',
+        notas: prodNotasInput.value || ''
+      });
+
+      try {
+        const response = await fetch(SHEETS_API_URL, { method: 'POST', body: params });
+        const result = await response.json();
+
+        if (result.success) {
+          showModal('✅', '¡Guardado!', 'Se guardó en Google Sheets');
         } else {
-          styleInput.classList.remove('error');
+          showModal('❌', 'Error', 'No se pudo guardar');
         }
+      } catch (error) {
+        showModal('❌', 'Error', error.message);
       }
 
-      // Mostrar errores o habilitar botón
-      if (missing.length > 0) {
-        showError('Falta completar: ' + missing.join(', '));
-        nextBtn.disabled = true;
-        return false;
-      } else {
-        errorBox.classList.remove('on');
-        nextBtn.disabled = false;
-        return true;
-      }
+      prodSaveSheetBtn.classList.remove('loading');
+      prodSaveSheetBtn.textContent = '📊 Guardar en Google Sheets';
+    });
+
+    prodNextBtn.addEventListener('click', () => {
+      prodClearForm();
+      prodProductInfo.style.display = 'none';
+      prodStartCamBtn.style.display = 'block';
+    });
+
+    prodClearBtn.addEventListener('click', prodClearForm);
+
+    function prodClearForm() {
+      prodMarcaInput.value = '';
+      prodTituloInput.value = '';
+      prodDescripcionInput.value = '';
+      prodPrecioInput.value = '';
+      prodLocalizacionInput.value = '';
+      prodEstadoInput.value = 'No Listado';
+      prodNotasInput.value = '';
+      prodProductImg.style.display = 'none';
+      prodCurrentPhotoURL = '';
     }
 
-    function showError(message) {
-      errorText.textContent = message;
-      errorBox.classList.add('on');
+    // ════════════════════════════════════════════════════════════════
+    // FOTO COMPARTIDA
+    // ════════════════════════════════════════════════════════════════
+    function uploadPhotoToImgBB(blob, module) {
+      const formData = new FormData();
+      formData.append('image', blob);
+      formData.append('key', IMGBB_KEY);
+
+      fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: formData
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            const url = data.data.url;
+            if (module === 'cloth') {
+              clothCurrentPhotoURL = url;
+              clothProductImg.src = url;
+              clothProductImg.style.display = 'block';
+            } else if (module === 'prod') {
+              prodCurrentPhotoURL = url;
+              prodProductImg.src = url;
+              prodProductImg.style.display = 'block';
+              prodProductInfo.style.display = 'block';
+              prodStartCamBtn.style.display = 'none';
+            }
+          }
+        })
+        .catch((err) => console.error('Error ImgBB:', err));
     }
 
     // ════════════════════════════════════════════════════════════════
-    // EVENT LISTENERS PARA VALIDACIÓN
+    // MODAL
     // ════════════════════════════════════════════════════════════════
-    const allInputs = document.querySelectorAll('.ui');
-    allInputs.forEach(input => {
-      input.addEventListener('input', validateForm);
-      input.addEventListener('change', validateForm);
-    });
+    const confirmModal = document.getElementById('confirmModal');
+    const modalBtn = document.getElementById('modalBtn');
 
-    // ════════════════════════════════════════════════════════════════
-    // CÁMARA Y QR
-    // ════════════════════════════════════════════════════════════════
-    startBtn.addEventListener('click', () => {
-      qrContainer.style.display = 'block';
-      startBtn.style.display = 'none';
-
-      html5QrcodeScanner = new Html5Qrcode('qr-video');
-      html5QrcodeScanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          currentBarcode = decodedText;
-          barcodeVal.textContent = decodedText;
-          html5QrcodeScanner.stop();
-          qrContainer.style.display = 'none';
-          productForm.style.display = 'block';
-          validateForm();
-        },
-        (error) => console.warn('QR error:', error)
-      );
-    });
-
-    stopBtn.addEventListener('click', () => {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop();
-        qrContainer.style.display = 'none';
-        startBtn.style.display = 'block';
-      }
-    });
-
-    // ════════════════════════════════════════════════════════════════
-    // BOTONES
-    // ════════════════════════════════════════════════════════════════
-    nextBtn.addEventListener('click', () => {
-      if (validateForm()) {
-        showConfirm('✅', '¡Listo!', 'Producto registrado. Preparando siguiente...');
-        setTimeout(() => {
-          clearForm();
-          productForm.style.display = 'none';
-          startBtn.style.display = 'block';
-          confirmModal.classList.remove('on');
-        }, 1500);
-      }
-    });
-
-    clearBtn.addEventListener('click', clearForm);
-
-    confirmBtn.addEventListener('click', () => {
-      confirmModal.classList.remove('on');
-    });
-
-    function clearForm() {
-      brandInput.value = '';
-      titleInput.value = '';
-      descInput.value = '';
-      colorInput.value = '';
-      materialInput.value = '';
-      sizeInput.value = '';
-      conditionInput.value = '';
-      priceInput.value = '';
-      locationInput.value = '';
-      notesInput.value = '';
-      dressLengthInput.value = '';
-      styleInput.value = '';
-      barcodeVal.textContent = '-';
-      currentBarcode = '';
-      errorBox.classList.remove('on');
-      
-      allInputs.forEach(input => input.classList.remove('error'));
-      nextBtn.disabled = true;
-    }
-
-    function showConfirm(icon, text, subtext) {
-      document.getElementById('confirmIcon').textContent = icon;
-      document.getElementById('confirmText').textContent = text;
-      document.getElementById('confirmSubtext').textContent = subtext;
+    function showModal(icon, title, text) {
+      document.getElementById('modalIcon').textContent = icon;
+      document.getElementById('modalText').textContent = title;
+      document.getElementById('modalSubtext').textContent = text;
       confirmModal.classList.add('on');
     }
 
-    console.log('✅ Clothing-Shoes con validación de campos cargado');
+    modalBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('on');
+    });
+
+    console.log('✅ Savvy Scanner Master v1 cargado - Clothing + Product');
   </script>
 </body>
 </html>
