@@ -5040,38 +5040,38 @@ function applyWhiteSquare(dataUrl, size=1500) {
   });
 }
 
-function clAskPhotoSource() {
-  return new Promise(resolve => {
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
-    ov.innerHTML = `
-      <div style="background:var(--sf);border-radius:18px;padding:24px;max-width:320px;width:100%;text-align:center">
-        <div style="font-size:18px;font-weight:800;margin-bottom:18px;color:var(--tx)">📷 Add Photo</div>
-        <button id="_clCam" style="width:100%;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#FF6B35,#E71D36)">📸 Camera</button>
-        <button id="_clGal" style="width:100%;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#4285F4,#34A853)">🖼️ Gallery</button>
-        <button id="_clCancel" style="width:100%;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;color:var(--mu);cursor:pointer;background:var(--bd)">Cancel</button>
-      </div>`;
-    document.body.appendChild(ov);
-    const done = (val) => { ov.remove(); resolve(val); };
-    document.getElementById('_clCam').addEventListener('click', () => done('camera'));
-    document.getElementById('_clGal').addEventListener('click', () => done('gallery'));
-    document.getElementById('_clCancel').addEventListener('click', () => done(null));
-    ov.addEventListener('click', (e) => { if (e.target === ov) done(null); });
+function clTakePhoto(slotId) {
+  // Mostrar menú: Cámara o Galería
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.innerHTML =
+    '<div style="background:#1a1a1a;border-radius:18px;padding:24px;max-width:320px;width:100%;text-align:center">'
+    + '<div style="font-size:18px;font-weight:800;margin-bottom:18px;color:#fff">📷 Add Photo</div>'
+    + '<button id="_clCam" style="width:100%;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#FF6B35,#E71D36)">📸 Camera</button>'
+    + '<button id="_clGal" style="width:100%;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#4285F4,#34A853)">🖼️ Gallery</button>'
+    + '<button id="_clCancel" style="width:100%;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;color:#888;cursor:pointer;background:#333">Cancel</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+
+  document.getElementById('_clCam').addEventListener('click', function() {
+    ov.remove();
+    clOpenPhotoInput(slotId, true);
+  });
+  document.getElementById('_clGal').addEventListener('click', function() {
+    ov.remove();
+    clOpenPhotoInput(slotId, false);
+  });
+  document.getElementById('_clCancel').addEventListener('click', function() {
+    ov.remove();
   });
 }
 
-async function clTakePhoto(slotId) {
-  // Preguntar: Cámara o Galería
-  const source = await clAskPhotoSource();
-  if (!source) return; // Canceló
-
+function clOpenPhotoInput(slotId, useCamera) {
   return new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    if (source === 'camera') {
-      input.capture = 'environment';
-    }
+    if (useCamera) input.capture = 'environment';
     input.onchange = async e => {
       const file = e.target.files[0];
       if (!file) return resolve();
