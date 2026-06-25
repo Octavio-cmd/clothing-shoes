@@ -6,34 +6,40 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Savvy Scanner">
-  <title>Savvy Scanner</title>
+  <title>Savvy Scanner - Clothing-Shoes</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #0d0d0d;
       --sf: #1a1a1a;
+      --sf2: #242424;
       --bd: #333;
       --tx: #fff;
       --mu: #888;
+      --sv: #00e676;
       --ac: #ff6b00;
       --dw: #ff1744;
-      --sv: #00e676;
+      --gd: #ffab00;
     }
-    
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
-    
+
     body {
       background: var(--bg);
       color: var(--tx);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      padding-bottom: 40px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
     }
-    
-    .header {
+
+    .hdr {
       background: var(--sf);
       border-bottom: 1px solid var(--bd);
       padding: 12px 16px;
@@ -41,718 +47,615 @@
       top: 0;
       z-index: 100;
     }
-    
-    .header-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    
-    .header h1 {
+
+    .hdr-tx {
       font-size: 18px;
       font-weight: 800;
+      letter-spacing: -0.5px;
     }
-    
-    .header span {
+
+    .hdr-tx span {
       color: var(--ac);
     }
-    
-    .module-switch {
-      display: flex;
-      gap: 8px;
-      background: var(--bg);
-      padding: 8px;
-      border-radius: 8px;
-    }
-    
-    .module-btn {
-      flex: 1;
-      background: var(--bd);
-      border: none;
-      border-radius: 6px;
-      padding: 8px 12px;
-      color: var(--mu);
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      transition: all 0.2s;
-    }
-    
-    .module-btn.active {
-      background: var(--ac);
-      color: #fff;
-    }
-    
-    .container {
-      max-width: 100%;
-      padding: 16px;
-    }
-    
-    .screen {
+
+    .scr {
       display: none;
+      padding: 20px 16px;
     }
-    
-    .screen.active {
+
+    .scr.on {
       display: block;
     }
-    
-    .section {
-      margin-bottom: 20px;
+
+    .hero {
       text-align: center;
+      padding: 26px 0 16px;
     }
-    
-    .section h2 {
-      font-size: 20px;
-      margin-bottom: 8px;
+
+    .hero h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 5px;
     }
-    
-    .section p {
+
+    .hero p {
       color: var(--mu);
       font-size: 14px;
     }
-    
-    .btn-scan {
+
+    .cam-b {
       width: 100%;
-      background: linear-gradient(135deg, #ff6b00, #e71d36);
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
       border: 2px solid var(--ac);
-      border-radius: 14px;
-      padding: 24px;
-      color: #fff;
-      font-size: 16px;
-      font-weight: 800;
+      border-radius: 16px;
+      padding: 28px 20px;
       cursor: pointer;
+      text-align: center;
       margin: 16px 0;
     }
-    
-    .btn-scan:active {
+
+    .cam-b:active {
       opacity: 0.85;
+      transform: scale(0.98);
     }
-    
-    .scan-icon {
-      font-size: 36px;
-      margin-bottom: 8px;
-    }
-    
-    #qr-video-ps, #qr-video-cs {
-      width: 100%;
-      border-radius: 12px;
-      margin: 16px 0;
-    }
-    
-    .form-group {
-      background: var(--sf);
-      border-radius: 10px;
-      padding: 12px;
+
+    .cam-ic {
+      font-size: 44px;
       margin-bottom: 10px;
     }
-    
-    .label {
+
+    .cam-lb {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ac);
+      letter-spacing: 1px;
+    }
+
+    .ui {
+      width: 100%;
+      background: var(--sf);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: var(--tx);
+      font-size: 16px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .ui:focus {
+      border-color: var(--ac);
+    }
+
+    .ui::placeholder {
+      color: var(--mu);
+    }
+
+    .ui.error {
+      border-color: var(--dw);
+      background: rgba(255, 23, 68, 0.05);
+    }
+
+    .card {
+      background: var(--sf);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .lbl {
       font-size: 11px;
       color: var(--mu);
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 6px;
-      display: block;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    
+
     .required {
       color: var(--dw);
       font-weight: 800;
     }
-    
-    .input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--bd);
-      border-radius: 8px;
-      padding: 12px;
-      color: var(--tx);
-      font-size: 16px;
-      font-family: inherit;
-    }
-    
-    .input:focus {
-      outline: none;
-      border-color: var(--ac);
-    }
-    
-    .input.error {
-      border-color: var(--dw);
-      background: rgba(255, 23, 68, 0.05);
-    }
-    
-    .error-msg {
-      display: none;
-      background: rgba(255, 23, 68, 0.1);
-      border: 1px solid var(--dw);
-      border-radius: 8px;
-      padding: 12px;
-      margin: 12px 0;
-      color: var(--dw);
+
+    .val {
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 500;
+      line-height: 1.4;
+      word-break: break-word;
     }
-    
-    .error-msg.show {
-      display: block;
-    }
-    
+
     .btn {
       width: 100%;
       border: none;
-      border-radius: 10px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 15px;
+      color: #fff;
       font-size: 16px;
       font-weight: 800;
       cursor: pointer;
       margin-bottom: 10px;
+      transition: all 0.2s;
     }
-    
-    .btn-next {
-      background: linear-gradient(135deg, #ff6b00, #e71d36);
-      color: #fff;
+
+    .btn:active:not(:disabled) {
+      transform: scale(0.98);
+      opacity: 0.9;
     }
-    
-    .btn-next:disabled {
+
+    .btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
-    
-    .btn-next:active:not(:disabled) {
-      opacity: 0.9;
+
+    .btn-primary {
+      background: linear-gradient(135deg, #FF6B35, #E71D36);
     }
-    
+
     .btn-clear {
       background: none;
       border: 1px solid var(--bd);
       color: var(--mu);
     }
-    
-    .btn-stop {
+
+    .error-box {
+      background: rgba(255, 23, 68, 0.1);
+      border: 1px solid var(--dw);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    .error-box.on {
+      display: block;
+    }
+
+    .error-icon {
+      color: var(--dw);
+      font-weight: 800;
+      margin-right: 8px;
+    }
+
+    .error-text {
+      color: var(--dw);
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    #qr-video {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .cam-st {
+      width: 100%;
       background: var(--sf);
       border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 14px;
       color: var(--dw);
-    }
-    
-    .value {
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 14px;
     }
-    
+
     .modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.8);
       z-index: 1000;
       align-items: center;
       justify-content: center;
       padding: 20px;
     }
-    
-    .modal.show {
+
+    .modal.on {
       display: flex;
     }
-    
+
     .modal-content {
       background: var(--sf);
-      border-radius: 14px;
-      padding: 24px;
-      text-align: center;
+      border-radius: 16px;
+      padding: 20px;
       max-width: 90vw;
+      text-align: center;
     }
-    
+
     .modal-icon {
       font-size: 48px;
-      margin-bottom: 12px;
-    }
-    
-    .modal-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 8px;
-    }
-    
-    .modal-text {
-      color: var(--mu);
-      font-size: 14px;
       margin-bottom: 16px;
     }
-    
+
+    .modal-text {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtext {
+      font-size: 14px;
+      color: var(--mu);
+      margin-bottom: 20px;
+    }
+
     .modal-btn {
       background: var(--ac);
       border: none;
       border-radius: 10px;
       padding: 12px 24px;
       color: #fff;
-      font-weight: 800;
+      font-weight: 700;
       cursor: pointer;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .row-half {
+      flex: 1;
     }
   </style>
 </head>
 <body>
-  <!-- HEADER CON SELECTOR DE MÓDULOS -->
-  <div class="header">
-    <div class="header-top">
-      <h1>Savvy <span>Scanner</span></h1>
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-tx">Savvy <span>Scanner</span></div>
+  </div>
+
+  <!-- PANTALLA PRINCIPAL -->
+  <div class="scr on" id="mainScr">
+    <div class="hero">
+      <h2>Clothing & Shoes</h2>
+      <p>Escanea productos de ropa y zapatos</p>
     </div>
-    <div class="module-switch">
-      <button class="module-btn active" id="psBtn">📦 Product</button>
-      <button class="module-btn" id="csBtn">👕 Clothing</button>
+
+    <div class="cam-b" id="startBtn">
+      <div class="cam-ic">📷</div>
+      <div class="cam-lb">ESCANEAR CÓDIGO</div>
+    </div>
+
+    <div id="qrContainer" style="display:none">
+      <video id="qr-video"></video>
+      <button class="cam-st" id="stopBtn">Detener cámara</button>
+    </div>
+
+    <!-- FORMULARIO DE PRODUCTO -->
+    <div id="productForm" style="display:none">
+      
+      <!-- CAJA DE ERRORES -->
+      <div class="error-box" id="errorBox">
+        <span class="error-icon">⚠️</span>
+        <span class="error-text" id="errorText"></span>
+      </div>
+
+      <!-- CÓDIGO DE BARRAS -->
+      <div class="card">
+        <div class="lbl">Código de Barras</div>
+        <div class="val" id="barcodeVal">-</div>
+      </div>
+
+      <!-- MARCA -->
+      <div class="card">
+        <div class="lbl">Marca <span class="required">*</span></div>
+        <input type="text" class="ui" id="brandInput" placeholder="Nike, Adidas, etc.">
+      </div>
+
+      <!-- TÍTULO -->
+      <div class="card">
+        <div class="lbl">Título <span class="required">*</span></div>
+        <input type="text" class="ui" id="titleInput" placeholder="Polo Azul Talla M">
+      </div>
+
+      <!-- DESCRIPCIÓN -->
+      <div class="card">
+        <div class="lbl">Descripción <span class="required">*</span></div>
+        <textarea class="ui" id="descInput" placeholder="Detalles del producto..." style="resize:vertical;min-height:80px"></textarea>
+      </div>
+
+      <!-- COLOR -->
+      <div class="card">
+        <div class="lbl">Color <span class="required">*</span></div>
+        <input type="text" class="ui" id="colorInput" placeholder="Azul, Rojo, Negro, etc.">
+      </div>
+
+      <!-- DRESS LENGTH (Vestidos) -->
+      <div class="card" id="dressLengthCard" style="display:none">
+        <div class="lbl">Largo del Vestido <span class="required">*</span></div>
+        <select class="ui" id="dressLengthInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Mini">Mini</option>
+          <option value="Knee">Hasta la rodilla</option>
+          <option value="Maxi">Maxi</option>
+          <option value="Tea">Tea length</option>
+          <option value="Floor">Floor length</option>
+        </select>
+      </div>
+
+      <!-- STYLE -->
+      <div class="card" id="styleCard" style="display:none">
+        <div class="lbl">Estilo <span class="required">*</span></div>
+        <input type="text" class="ui" id="styleInput" placeholder="Casual, Formal, Deportivo, etc.">
+      </div>
+
+      <!-- MATERIAL -->
+      <div class="card">
+        <div class="lbl">Material <span class="required">*</span></div>
+        <select class="ui" id="materialInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Algodón">Algodón</option>
+          <option value="Poliéster">Poliéster</option>
+          <option value="Lana">Lana</option>
+          <option value="Seda">Seda</option>
+          <option value="Mezcla">Mezcla</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <!-- TALLA -->
+      <div class="card">
+        <div class="lbl">Talla <span class="required">*</span></div>
+        <select class="ui" id="sizeInput">
+          <option value="">-- Selecciona --</option>
+          <option value="XS">XS</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+          <option value="XXL">XXL</option>
+          <option value="One Size">One Size</option>
+        </select>
+      </div>
+
+      <!-- ESTADO DE LA PRENDA -->
+      <div class="card">
+        <div class="lbl">Estado <span class="required">*</span></div>
+        <select class="ui" id="conditionInput">
+          <option value="">-- Selecciona --</option>
+          <option value="Nuevo">Nuevo con etiqueta</option>
+          <option value="Nuevo sin etiqueta">Nuevo sin etiqueta</option>
+          <option value="Como nuevo">Como nuevo</option>
+          <option value="Muy bien">Muy bien</option>
+          <option value="Bien">Bien</option>
+        </select>
+      </div>
+
+      <!-- PRECIO -->
+      <div class="card">
+        <div class="lbl">Precio Estimado <span class="required">*</span></div>
+        <input type="number" class="ui" id="priceInput" placeholder="49.99" step="0.01">
+      </div>
+
+      <!-- LOCALIZACIÓN -->
+      <div class="card">
+        <div class="lbl">Localización en Bodega <span class="required">*</span></div>
+        <input type="text" class="ui" id="locationInput" placeholder="Estante C, Fila 3">
+      </div>
+
+      <!-- NOTAS OPCIONALES -->
+      <div class="card">
+        <div class="lbl">Notas (Opcional)</div>
+        <textarea class="ui" id="notesInput" placeholder="Notas adicionales..." style="resize:vertical;min-height:60px"></textarea>
+      </div>
+
+      <!-- BOTONES -->
+      <button class="btn btn-primary" id="nextBtn" disabled>➕ Siguiente Producto</button>
+      <button class="btn btn-clear" id="clearBtn">Limpiar</button>
     </div>
   </div>
 
-  <div class="container">
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <!-- MÓDULO 1: PRODUCT SCANNER -->
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div class="screen active" id="psScreen">
-      <div class="section">
-        <h2>Product Scanner</h2>
-        <p>Escanea código y toma foto</p>
-      </div>
-
-      <button class="btn-scan" id="psScan">
-        <div class="scan-icon">📷</div>
-        <div>ESCANEAR CÓDIGO</div>
-      </button>
-
-      <div id="psQrContainer" style="display:none;">
-        <video id="qr-video-ps"></video>
-        <button class="btn btn-stop" id="psStop">Detener</button>
-      </div>
-
-      <div id="psForm" style="display:none;">
-        <div class="error-msg" id="psErrorMsg"></div>
-        
-        <div class="form-group">
-          <label class="label">Código de Barras</label>
-          <div class="value" id="psBarcode">-</div>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Marca <span class="required">*</span></label>
-          <input type="text" class="input" id="psBrand" placeholder="Nike, Adidas...">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Título <span class="required">*</span></label>
-          <input type="text" class="input" id="psTitle" placeholder="Producto...">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Descripción <span class="required">*</span></label>
-          <textarea class="input" id="psDesc" placeholder="Detalles..." style="resize:vertical;min-height:80px;"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Precio Estimado <span class="required">*</span></label>
-          <input type="number" class="input" id="psPrice" placeholder="49.99" step="0.01">
-        </div>
-
-        <button class="btn btn-next" id="psNext" disabled>➕ Siguiente Producto</button>
-        <button class="btn btn-clear" id="psClear">Limpiar</button>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <!-- MÓDULO 2: CLOTHING-SHOES -->
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div class="screen" id="csScreen">
-      <div class="section">
-        <h2>Clothing & Shoes</h2>
-        <p>Completa todos los campos marcados con *</p>
-      </div>
-
-      <button class="btn-scan" id="csScan">
-        <div class="scan-icon">📷</div>
-        <div>ESCANEAR CÓDIGO</div>
-      </button>
-
-      <div id="csQrContainer" style="display:none;">
-        <video id="qr-video-cs"></video>
-        <button class="btn btn-stop" id="csStop">Detener</button>
-      </div>
-
-      <div id="csForm" style="display:none;">
-        <div class="error-msg" id="csErrorMsg"></div>
-        
-        <div class="form-group">
-          <label class="label">Código de Barras</label>
-          <div class="value" id="csBarcode">-</div>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Marca <span class="required">*</span></label>
-          <input type="text" class="input" id="csBrand" placeholder="Nike, Adidas...">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Título <span class="required">*</span></label>
-          <input type="text" class="input" id="csTitle" placeholder="Polo Azul Talla M">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Descripción <span class="required">*</span></label>
-          <textarea class="input" id="csDescription" placeholder="Detalles..." style="resize:vertical;min-height:80px;"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Color <span class="required">*</span></label>
-          <input type="text" class="input" id="csColor" placeholder="Azul, Rojo, Negro...">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Material <span class="required">*</span></label>
-          <select class="input" id="csMaterial">
-            <option value="">-- Selecciona --</option>
-            <option value="Algodón">Algodón</option>
-            <option value="Poliéster">Poliéster</option>
-            <option value="Lana">Lana</option>
-            <option value="Seda">Seda</option>
-            <option value="Mezcla">Mezcla</option>
-            <option value="Otro">Otro</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Talla <span class="required">*</span></label>
-          <select class="input" id="csSize">
-            <option value="">-- Selecciona --</option>
-            <option value="XS">XS</option>
-            <option value="S">S</option>
-            <option value="M">M</option>
-            <option value="L">L</option>
-            <option value="XL">XL</option>
-            <option value="XXL">XXL</option>
-            <option value="XXXL">XXXL</option>
-            <option value="One Size">One Size</option>
-          </select>
-        </div>
-
-        <div class="form-group" id="csDressLengthGroup" style="display:none;">
-          <label class="label">Largo del Vestido <span class="required">*</span></label>
-          <select class="input" id="csDressLength">
-            <option value="">-- Selecciona --</option>
-            <option value="Mini">Mini</option>
-            <option value="Knee">Hasta la rodilla</option>
-            <option value="Midi">Midi</option>
-            <option value="Maxi">Maxi</option>
-            <option value="Floor">Floor length</option>
-          </select>
-        </div>
-
-        <div class="form-group" id="csStyleGroup" style="display:none;">
-          <label class="label">Estilo <span class="required">*</span></label>
-          <input type="text" class="input" id="csStyle" placeholder="Casual, Formal, Deportivo...">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Estado <span class="required">*</span></label>
-          <select class="input" id="csCondition">
-            <option value="">-- Selecciona --</option>
-            <option value="Nuevo">Nuevo con etiqueta</option>
-            <option value="Nuevo sin etiqueta">Nuevo sin etiqueta</option>
-            <option value="Como nuevo">Como nuevo</option>
-            <option value="Muy bien">Muy bien</option>
-            <option value="Bien">Bien</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="label">Precio Estimado <span class="required">*</span></label>
-          <input type="number" class="input" id="csPrice" placeholder="49.99" step="0.01">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Localización <span class="required">*</span></label>
-          <input type="text" class="input" id="csLocation" placeholder="Estante C, Fila 3">
-        </div>
-
-        <div class="form-group">
-          <label class="label">Notas (Opcional)</label>
-          <textarea class="input" id="csNotes" placeholder="Notas adicionales..." style="resize:vertical;min-height:60px;"></textarea>
-        </div>
-
-        <button class="btn btn-next" id="csNext" disabled>➕ Siguiente Producto</button>
-        <button class="btn btn-clear" id="csClear">Limpiar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL -->
-  <div class="modal" id="modal">
+  <!-- MODAL DE CONFIRMACIÓN -->
+  <div class="modal" id="confirmModal">
     <div class="modal-content">
-      <div class="modal-icon" id="modalIcon">✅</div>
-      <div class="modal-title" id="modalTitle">¡Listo!</div>
-      <div class="modal-text" id="modalText">Producto registrado</div>
-      <button class="modal-btn" id="modalBtn">OK</button>
+      <div class="modal-icon" id="confirmIcon">✅</div>
+      <div class="modal-text" id="confirmText">¡Listo!</div>
+      <div class="modal-subtext" id="confirmSubtext">Producto registrado</div>
+      <button class="modal-btn" id="confirmBtn">OK</button>
     </div>
   </div>
 
   <script>
-    // ═══════════════════════════════════════════════════════════════
-    // SELECTOR DE MÓDULOS
-    // ═══════════════════════════════════════════════════════════════
-    const psBtn = document.getElementById('psBtn');
-    const csBtn = document.getElementById('csBtn');
-    const psScreen = document.getElementById('psScreen');
-    const csScreen = document.getElementById('csScreen');
+    // ════════════════════════════════════════════════════════════════
+    // ELEMENTOS
+    // ════════════════════════════════════════════════════════════════
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const qrContainer = document.getElementById('qrContainer');
+    const productForm = document.getElementById('productForm');
+    const nextBtn = document.getElementById('nextBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const errorBox = document.getElementById('errorBox');
+    const errorText = document.getElementById('errorText');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmBtn = document.getElementById('confirmBtn');
 
-    psBtn.addEventListener('click', () => {
-      psScreen.classList.add('active');
-      csScreen.classList.remove('active');
-      psBtn.classList.add('active');
-      csBtn.classList.remove('active');
-    });
+    // Inputs
+    const barcodeVal = document.getElementById('barcodeVal');
+    const brandInput = document.getElementById('brandInput');
+    const titleInput = document.getElementById('titleInput');
+    const descInput = document.getElementById('descInput');
+    const colorInput = document.getElementById('colorInput');
+    const materialInput = document.getElementById('materialInput');
+    const sizeInput = document.getElementById('sizeInput');
+    const conditionInput = document.getElementById('conditionInput');
+    const priceInput = document.getElementById('priceInput');
+    const locationInput = document.getElementById('locationInput');
+    const notesInput = document.getElementById('notesInput');
+    const dressLengthInput = document.getElementById('dressLengthInput');
+    const styleInput = document.getElementById('styleInput');
+    const dressLengthCard = document.getElementById('dressLengthCard');
+    const styleCard = document.getElementById('styleCard');
 
-    csBtn.addEventListener('click', () => {
-      csScreen.classList.add('active');
-      psScreen.classList.remove('active');
-      csBtn.classList.add('active');
-      psBtn.classList.remove('active');
-    });
+    let currentBarcode = '';
+    let html5QrcodeScanner = null;
 
-    // ═══════════════════════════════════════════════════════════════
-    // PRODUCT SCANNER
-    // ═══════════════════════════════════════════════════════════════
-    const psScan = document.getElementById('psScan');
-    const psStop = document.getElementById('psStop');
-    const psQrContainer = document.getElementById('psQrContainer');
-    const psForm = document.getElementById('psForm');
-    const psBarcode = document.getElementById('psBarcode');
-    const psBrand = document.getElementById('psBrand');
-    const psTitle = document.getElementById('psTitle');
-    const psDesc = document.getElementById('psDesc');
-    const psPrice = document.getElementById('psPrice');
-    const psNext = document.getElementById('psNext');
-    const psClear = document.getElementById('psClear');
-    const psErrorMsg = document.getElementById('psErrorMsg');
-    let psScanner = null;
+    // ════════════════════════════════════════════════════════════════
+    // CAMPOS REQUERIDOS
+    // ════════════════════════════════════════════════════════════════
+    const requiredFields = [
+      { id: 'brandInput', name: 'Marca' },
+      { id: 'titleInput', name: 'Título' },
+      { id: 'descInput', name: 'Descripción' },
+      { id: 'colorInput', name: 'Color' },
+      { id: 'materialInput', name: 'Material' },
+      { id: 'sizeInput', name: 'Talla' },
+      { id: 'conditionInput', name: 'Estado' },
+      { id: 'priceInput', name: 'Precio' },
+      { id: 'locationInput', name: 'Localización' }
+    ];
 
-    psScan.addEventListener('click', () => {
-      psQrContainer.style.display = 'block';
-      psScan.style.display = 'none';
-
-      psScanner = new Html5Qrcode('qr-video-ps');
-      psScanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (text) => {
-          psBarcode.textContent = text;
-          psScanner.stop();
-          psQrContainer.style.display = 'none';
-          psForm.style.display = 'block';
-          validatePS();
-        },
-        (err) => console.warn(err)
-      );
-    });
-
-    psStop.addEventListener('click', () => {
-      if (psScanner) {
-        psScanner.stop();
-        psQrContainer.style.display = 'none';
-        psScan.style.display = 'block';
-      }
-    });
-
-    function validatePS() {
+    // ════════════════════════════════════════════════════════════════
+    // VALIDACIÓN EN TIEMPO REAL
+    // ════════════════════════════════════════════════════════════════
+    function validateForm() {
       const missing = [];
-      if (!psBrand.value.trim()) missing.push('Marca');
-      if (!psTitle.value.trim()) missing.push('Título');
-      if (!psDesc.value.trim()) missing.push('Descripción');
-      if (!psPrice.value) missing.push('Precio');
 
-      if (missing.length > 0) {
-        psErrorMsg.textContent = '⚠️ Falta: ' + missing.join(', ');
-        psErrorMsg.classList.add('show');
-        psNext.disabled = true;
-      } else {
-        psErrorMsg.classList.remove('show');
-        psNext.disabled = false;
-      }
-    }
+      requiredFields.forEach(field => {
+        const input = document.getElementById(field.id);
+        const value = input.value.trim();
 
-    [psBrand, psTitle, psDesc, psPrice].forEach(el => {
-      el.addEventListener('input', validatePS);
-    });
-
-    psNext.addEventListener('click', () => {
-      if (!psNext.disabled) {
-        showModal('✅', '¡Listo!', 'Producto registrado');
-        setTimeout(() => {
-          clearPS();
-          psForm.style.display = 'none';
-          psScan.style.display = 'block';
-        }, 1500);
-      }
-    });
-
-    psClear.addEventListener('click', clearPS);
-
-    function clearPS() {
-      psBrand.value = '';
-      psTitle.value = '';
-      psDesc.value = '';
-      psPrice.value = '';
-      psBarcode.textContent = '-';
-      psErrorMsg.classList.remove('show');
-      psNext.disabled = true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // CLOTHING-SHOES
-    // ═══════════════════════════════════════════════════════════════
-    const csScan = document.getElementById('csScan');
-    const csStop = document.getElementById('csStop');
-    const csQrContainer = document.getElementById('csQrContainer');
-    const csForm = document.getElementById('csForm');
-    const csBarcode = document.getElementById('csBarcode');
-    const csBrand = document.getElementById('csBrand');
-    const csTitle = document.getElementById('csTitle');
-    const csDescription = document.getElementById('csDescription');
-    const csColor = document.getElementById('csColor');
-    const csMaterial = document.getElementById('csMaterial');
-    const csSize = document.getElementById('csSize');
-    const csDressLength = document.getElementById('csDressLength');
-    const csStyle = document.getElementById('csStyle');
-    const csCondition = document.getElementById('csCondition');
-    const csPrice = document.getElementById('csPrice');
-    const csLocation = document.getElementById('csLocation');
-    const csNotes = document.getElementById('csNotes');
-    const csNext = document.getElementById('csNext');
-    const csClear = document.getElementById('csClear');
-    const csErrorMsg = document.getElementById('csErrorMsg');
-    const csDressLengthGroup = document.getElementById('csDressLengthGroup');
-    const csStyleGroup = document.getElementById('csStyleGroup');
-    let csScanner = null;
-
-    const csRequired = ['csBrand', 'csTitle', 'csDescription', 'csColor', 'csMaterial', 'csSize', 'csCondition', 'csPrice', 'csLocation'];
-
-    csScan.addEventListener('click', () => {
-      csQrContainer.style.display = 'block';
-      csScan.style.display = 'none';
-
-      csScanner = new Html5Qrcode('qr-video-cs');
-      csScanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (text) => {
-          csBarcode.textContent = text;
-          csScanner.stop();
-          csQrContainer.style.display = 'none';
-          csForm.style.display = 'block';
-          validateCS();
-        },
-        (err) => console.warn(err)
-      );
-    });
-
-    csStop.addEventListener('click', () => {
-      if (csScanner) {
-        csScanner.stop();
-        csQrContainer.style.display = 'none';
-        csScan.style.display = 'block';
-      }
-    });
-
-    function validateCS() {
-      const missing = [];
-      csRequired.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el.value.trim()) {
-          missing.push(el.parentElement.querySelector('.label').textContent.split('*')[0].trim());
-          el.classList.add('error');
+        if (!value) {
+          missing.push(field.name);
+          input.classList.add('error');
         } else {
-          el.classList.remove('error');
+          input.classList.remove('error');
         }
       });
 
-      if (csDressLengthGroup.style.display !== 'none' && !csDressLength.value) {
-        missing.push('Largo del Vestido');
-        csDressLength.classList.add('error');
-      } else {
-        csDressLength.classList.remove('error');
+      // Validar Dress Length si es visible
+      if (dressLengthCard.style.display !== 'none') {
+        if (!dressLengthInput.value) {
+          missing.push('Largo del Vestido');
+          dressLengthInput.classList.add('error');
+        } else {
+          dressLengthInput.classList.remove('error');
+        }
       }
 
-      if (csStyleGroup.style.display !== 'none' && !csStyle.value.trim()) {
-        missing.push('Estilo');
-        csStyle.classList.add('error');
-      } else {
-        csStyle.classList.remove('error');
+      // Validar Style si es visible
+      if (styleCard.style.display !== 'none') {
+        if (!styleInput.value.trim()) {
+          missing.push('Estilo');
+          styleInput.classList.add('error');
+        } else {
+          styleInput.classList.remove('error');
+        }
       }
 
+      // Mostrar errores o habilitar botón
       if (missing.length > 0) {
-        csErrorMsg.textContent = '⚠️ Falta: ' + missing.join(', ');
-        csErrorMsg.classList.add('show');
-        csNext.disabled = true;
+        showError('Falta completar: ' + missing.join(', '));
+        nextBtn.disabled = true;
+        return false;
       } else {
-        csErrorMsg.classList.remove('show');
-        csNext.disabled = false;
+        errorBox.classList.remove('on');
+        nextBtn.disabled = false;
+        return true;
       }
     }
 
-    [csBrand, csTitle, csDescription, csColor, csMaterial, csSize, csCondition, csPrice, csLocation, csDressLength, csStyle].forEach(el => {
-      el.addEventListener('input', validateCS);
-      el.addEventListener('change', validateCS);
+    function showError(message) {
+      errorText.textContent = message;
+      errorBox.classList.add('on');
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS PARA VALIDACIÓN
+    // ════════════════════════════════════════════════════════════════
+    const allInputs = document.querySelectorAll('.ui');
+    allInputs.forEach(input => {
+      input.addEventListener('input', validateForm);
+      input.addEventListener('change', validateForm);
     });
 
-    csNext.addEventListener('click', () => {
-      if (!csNext.disabled) {
-        showModal('✅', '¡Listo!', 'Producto registrado');
+    // ════════════════════════════════════════════════════════════════
+    // CÁMARA Y QR
+    // ════════════════════════════════════════════════════════════════
+    startBtn.addEventListener('click', () => {
+      qrContainer.style.display = 'block';
+      startBtn.style.display = 'none';
+
+      html5QrcodeScanner = new Html5Qrcode('qr-video');
+      html5QrcodeScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          currentBarcode = decodedText;
+          barcodeVal.textContent = decodedText;
+          html5QrcodeScanner.stop();
+          qrContainer.style.display = 'none';
+          productForm.style.display = 'block';
+          validateForm();
+        },
+        (error) => console.warn('QR error:', error)
+      );
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop();
+        qrContainer.style.display = 'none';
+        startBtn.style.display = 'block';
+      }
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    // BOTONES
+    // ════════════════════════════════════════════════════════════════
+    nextBtn.addEventListener('click', () => {
+      if (validateForm()) {
+        showConfirm('✅', '¡Listo!', 'Producto registrado. Preparando siguiente...');
         setTimeout(() => {
-          clearCS();
-          csForm.style.display = 'none';
-          csScan.style.display = 'block';
+          clearForm();
+          productForm.style.display = 'none';
+          startBtn.style.display = 'block';
+          confirmModal.classList.remove('on');
         }, 1500);
       }
     });
 
-    csClear.addEventListener('click', clearCS);
+    clearBtn.addEventListener('click', clearForm);
 
-    function clearCS() {
-      csBrand.value = '';
-      csTitle.value = '';
-      csDescription.value = '';
-      csColor.value = '';
-      csMaterial.value = '';
-      csSize.value = '';
-      csDressLength.value = '';
-      csStyle.value = '';
-      csCondition.value = '';
-      csPrice.value = '';
-      csLocation.value = '';
-      csNotes.value = '';
-      csBarcode.textContent = '-';
-      csErrorMsg.classList.remove('show');
-      csNext.disabled = true;
-      [csBrand, csTitle, csDescription, csColor, csMaterial, csSize, csDressLength, csStyle, csCondition, csPrice, csLocation].forEach(el => {
-        el.classList.remove('error');
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // MODAL
-    // ═══════════════════════════════════════════════════════════════
-    const modal = document.getElementById('modal');
-    const modalBtn = document.getElementById('modalBtn');
-
-    function showModal(icon, title, text) {
-      document.getElementById('modalIcon').textContent = icon;
-      document.getElementById('modalTitle').textContent = title;
-      document.getElementById('modalText').textContent = text;
-      modal.classList.add('show');
-    }
-
-    modalBtn.addEventListener('click', () => {
-      modal.classList.remove('show');
+    confirmBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('on');
     });
 
-    console.log('✅ Savvy Scanner - Dos módulos cargados');
+    function clearForm() {
+      brandInput.value = '';
+      titleInput.value = '';
+      descInput.value = '';
+      colorInput.value = '';
+      materialInput.value = '';
+      sizeInput.value = '';
+      conditionInput.value = '';
+      priceInput.value = '';
+      locationInput.value = '';
+      notesInput.value = '';
+      dressLengthInput.value = '';
+      styleInput.value = '';
+      barcodeVal.textContent = '-';
+      currentBarcode = '';
+      errorBox.classList.remove('on');
+      
+      allInputs.forEach(input => input.classList.remove('error'));
+      nextBtn.disabled = true;
+    }
+
+    function showConfirm(icon, text, subtext) {
+      document.getElementById('confirmIcon').textContent = icon;
+      document.getElementById('confirmText').textContent = text;
+      document.getElementById('confirmSubtext').textContent = subtext;
+      confirmModal.classList.add('on');
+    }
+
+    console.log('✅ Clothing-Shoes con validación de campos cargado');
   </script>
 </body>
 </html>
