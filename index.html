@@ -4295,7 +4295,6 @@ async function clTestPrint() {
     }
   }
 }
-}
 
 // ── Recalcular total cuando usuario ingresa el envío ──────────
 function clUpdateTotal(itemPrice) {
@@ -5471,6 +5470,9 @@ function saveDriveUrl() {
     document.getElementById('drive-status').textContent = '⚠️ URL inválida';
     return;
   }
+  localStorage.setItem('cl_drive_url', url);
+  document.getElementById('drive-status').textContent = '✅ URL guardada';
+}
 
 // ============================================
 // IndexedDB para persistencia real
@@ -5561,9 +5563,6 @@ async function clSaveImgbbKey() {
     alert(`❌ Railway error, pero guardada en IndexedDB (4/4)`);
     document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB';
     toast('✅ Guardada en IndexedDB');
-  }
-}
-
   }
 }
 
