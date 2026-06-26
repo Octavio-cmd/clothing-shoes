@@ -3573,26 +3573,6 @@ function clGenSKU() {
 // ════════════════════════════════════════════════════════════════
 
 // ── PIXIAN.AI REMOVE BACKGROUND ────────────────────────────
-async function addPaddingToImage(dataUrl, paddingPercent = 0.15) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const padding = Math.ceil(Math.max(img.width, img.height) * paddingPercent);
-      canvas.width = img.width + (padding * 2);
-      canvas.height = img.height + (padding * 2);
-      
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white'; // Fondo blanco para padding
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, padding, padding);
-      
-      resolve(canvas.toDataURL('image/jpeg', 0.95));
-    };
-    img.src = dataUrl;
-  });
-}
-
 async function removeBackgroundPixian(dataUrl) {
   console.log('🎯 Pixian.ai background removal...');
   toast('🎯 Pixian.ai removing background...');
@@ -3651,10 +3631,8 @@ async function clRemoveBackground(dataUrl) {
   console.log('🎬 Clothing background removal: Railway rembg');
   
   try {
-    // Agregar padding (15% aire alrededor) para evitar que rembg corte las orillas/mangas
-    const paddedDataUrl = await addPaddingToImage(dataUrl, 0.15);
     const RAILWAY_API = 'https://savvy-rembg-production.up.railway.app/remove-bg';
-    const b64 = paddedDataUrl.split(',')[1]; // Extrae base64 con padding
+    const b64 = dataUrl.split(',')[1]; // Extrae solo la parte base64
     
     if (!b64) {
       clShowBgStatus('❌ Invalid image data', 'var(--dw)');
@@ -5655,10 +5633,12 @@ function clBuildAspects() {
 function clBuildEbayCategory() {
   const map = {
     'Dress':'Dresses','Jeans':'Jeans','Pants':'Pants','Shorts':'Shorts',
-    'T-Shirt':'T-Shirts','Shirt':'Shirts','Jacket':'Jackets & Coats',
-    'Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters','Sweatshirt':'Hoodies & Sweatshirts',
+    'T-Shirt':'T-Shirts','Shirt':'Shirts','Tank Top':'Tops & Blouses','Polo':'Shirts',
+    'Jacket':'Jackets & Coats','Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters',
+    'Sweatshirt':'Hoodies & Sweatshirts','Vest':'Vests','Coat':'Jackets & Coats',
     'Shoes':'Shoes','Sneakers':'Athletic Shoes','Boots':'Boots',
-    'Skirt':'Skirts','Coat':'Jackets & Coats','Blouse':'Tops & Blouses',
+    'Skirt':'Skirts','Blouse':'Tops & Blouses','Activewear Top':'Tops & Blouses',
+    'Activewear Bottom':'Pants','Swimwear':'Swimwear','Scrubs':'Scrubs','Other':'Other'
   };
   return map[cl.category] || cl.category || '';
 }
