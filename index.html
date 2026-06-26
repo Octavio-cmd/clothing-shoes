@@ -5634,7 +5634,7 @@ function clBuildEbayCategory() {
   const map = {
     'Dress':'Dresses','Jeans':'Jeans','Pants':'Pants','Shorts':'Shorts',
     'T-Shirt':'T-Shirts','Shirt':'Shirts','Jacket':'Jackets & Coats',
-    'Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters',
+    'Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters','Sweatshirt':'Hoodies & Sweatshirts',
     'Shoes':'Shoes','Sneakers':'Athletic Shoes','Boots':'Boots',
     'Skirt':'Skirts','Coat':'Jackets & Coats','Blouse':'Tops & Blouses',
   };
@@ -5645,7 +5645,7 @@ function clGetEbayCategoryId() {
   // eBay category IDs for US clothing
   const m = cl.gender === 'mens' ? {
     'Jeans':11483,'Pants':57989,'Shorts':15689,'T-Shirt':15687,
-    'Shirt':57991,'Jacket':57988,'Coat':57988,'Hoodie':155183,
+    'Shirt':57991,'Jacket':57988,'Coat':57988,'Hoodie':155183,'Sweatshirt':155183,
     'Sweater':11484,'Shoes':93427,'Sneakers':15709,'Boots':11498,
     'Dress':57990,'Skirt':57990,'Blouse':57990,
   } : cl.gender === 'kids' ? {
@@ -5654,7 +5654,7 @@ function clGetEbayCategoryId() {
   } : {
     'Dress':63861,'Jeans':11554,'Pants':11510,'Shorts':11555,
     'T-Shirt':53159,'Shirt':11514,'Blouse':11514,'Jacket':63862,
-    'Coat':63862,'Hoodie':155183,'Sweater':11496,'Skirt':11553,
+    'Coat':63862,'Hoodie':155183,'Sweatshirt':155183,'Sweater':11496,'Skirt':11553,
     'Shoes':55793,'Sneakers':15710,'Boots':45333,
   };
   return m[cl.category] || (cl.gender==='mens' ? 57990 : 63861);
