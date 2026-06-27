@@ -5640,7 +5640,8 @@ function clBuildEbayCategory() {
     'Shoes':'Shoes','Sneakers':'Athletic Shoes','Boots':'Boots',
     'Skirt':'Skirts','Coat':'Jackets & Coats','Blouse':'Tops & Blouses',
     'Tank Top':'Tops & Blouses','Sleeveless':'Tops & Blouses','Vest':'Jackets & Coats',
-    'Polo':'Shirts','Activewear':'Activewear','Swimwear':'Swimwear','Scrubs':'Scrubs',
+    'Polo':'Shirts','Activewear':'Activewear','Activewear Top':'Tops & Blouses','Activewear Bottom':'Pants',
+    'Swimwear':'Swimwear','Scrubs':'Scrubs',
   };
   return map[cl.category] || cl.category || '';
 }
@@ -5652,17 +5653,17 @@ function clGetEbayCategoryId() {
     'Shirt':57991,'Jacket':57988,'Coat':57988,'Vest':57988,'Hoodie':155183,'Sweatshirt':155183,
     'Sweater':11484,'Shoes':93427,'Sneakers':15709,'Boots':11498,
     'Dress':57990,'Skirt':57990,'Blouse':57990,'Tank Top':57991,'Sleeveless':57991,
-    'Polo':57991,'Activewear':57991,'Swimwear':57993,'Scrubs':11650,
+    'Polo':57991,'Activewear':57991,'Activewear Top':57991,'Activewear Bottom':57989,'Swimwear':57993,'Scrubs':11650,
   } : cl.gender === 'kids' ? {
     'Jeans':57989,'Pants':57989,'Dress':3009,'T-Shirt':3008,
     'Shirt':3008,'Shoes':57929,'Tank Top':3008,'Sleeveless':3008,'Vest':3008,
-    'Polo':3008,'Activewear':3008,'Swimwear':3008,'Scrubs':3008,
+    'Polo':3008,'Activewear':3008,'Activewear Top':3008,'Activewear Bottom':3008,'Swimwear':3008,'Scrubs':3008,
   } : {
     'Dress':63861,'Jeans':11554,'Pants':11510,'Shorts':11555,
     'T-Shirt':53159,'Shirt':11514,'Blouse':11514,'Jacket':63862,'Vest':63862,
     'Coat':63862,'Hoodie':155183,'Sweatshirt':155183,'Sweater':11496,'Skirt':11553,
     'Shoes':55793,'Sneakers':15710,'Boots':45333,'Tank Top':11514,'Sleeveless':11514,
-    'Polo':11514,'Activewear':11514,'Swimwear':63863,'Scrubs':11650,
+    'Polo':11514,'Activewear':11514,'Activewear Top':11514,'Activewear Bottom':11510,'Swimwear':63863,'Scrubs':11650,
   };
   return m[cl.category] || (cl.gender==='mens' ? 57990 : 63861);
 }
