@@ -5506,18 +5506,15 @@ async function clSaveImgbbKey() {
   const v = document.getElementById('imgbb-key-in')?.value?.trim();
   if (!v) { toast('⚠️ Enter ImgBB API key'); return; }
   
-  alert('💾 Guardando en IndexedDB... (1/4)');
-  
   const savedLocally = await saveToIndexedDB('imgbb_key', v);
   
   if (savedLocally) {
-    alert('✅ Guardado en IndexedDB (persistente) (2/4)');
+    document.getElementById('imgbb-status').textContent = '⏳ Sincronizando...';
   } else {
-    alert('⚠️ Error en IndexedDB (2/4)');
+    console.warn('IndexedDB save failed');
   }
   
   try {
-    alert('📡 Enviando a Railway como backup... (3/4)');
     const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -5525,16 +5522,13 @@ async function clSaveImgbbKey() {
     });
     
     if (res.ok) {
-      alert(`✅ Railway backup confirmado (4/4)`);
       document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada (IndexedDB + Railway)';
       toast('✅ Guardada');
     } else {
-      alert(`⚠️ Railway: ${res.status} (4/4)`);
       document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB (Railway offline)';
       toast('✅ Guardada en IndexedDB');
     }
   } catch (err) {
-    alert(`❌ Railway error, pero guardada en IndexedDB (4/4)`);
     document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB';
     toast('✅ Guardada en IndexedDB');
   }
@@ -5633,12 +5627,10 @@ function clBuildAspects() {
 function clBuildEbayCategory() {
   const map = {
     'Dress':'Dresses','Jeans':'Jeans','Pants':'Pants','Shorts':'Shorts',
-    'T-Shirt':'T-Shirts','Shirt':'Shirts','Tank Top':'Tops & Blouses','Polo':'Shirts',
-    'Jacket':'Jackets & Coats','Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters',
-    'Sweatshirt':'Hoodies & Sweatshirts','Vest':'Vests','Coat':'Jackets & Coats',
+    'T-Shirt':'T-Shirts','Shirt':'Shirts','Jacket':'Jackets & Coats',
+    'Hoodie':'Hoodies & Sweatshirts','Sweater':'Sweaters','Sweatshirt':'Hoodies & Sweatshirts',
     'Shoes':'Shoes','Sneakers':'Athletic Shoes','Boots':'Boots',
-    'Skirt':'Skirts','Blouse':'Tops & Blouses','Activewear Top':'Tops & Blouses',
-    'Activewear Bottom':'Pants','Swimwear':'Swimwear','Scrubs':'Scrubs','Other':'Other'
+    'Skirt':'Skirts','Coat':'Jackets & Coats','Blouse':'Tops & Blouses',
   };
   return map[cl.category] || cl.category || '';
 }
