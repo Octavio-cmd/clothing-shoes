@@ -3513,7 +3513,7 @@ const CL_BRANDS = ['Nike','Adidas','Under Armour','Champion','Puma','Reebok','Ne
   'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Nautica',
   'Columbia','North Face','Carhartt','Patagonia','Carter\'s','OshKosh','Other'];
 
-const CL_CATS = ['T-Shirt','Shirt','Polo','Tank Top','Hoodie','Sweatshirt','Sweater',
+const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Sweatshirt','Sweater',
   'Jacket','Coat','Vest','Pants','Jeans','Shorts','Dress','Skirt',
   'Activewear Top','Activewear Bottom','Swimwear','Scrubs','Other'];
 
@@ -3948,6 +3948,7 @@ async function clLookupBarcode(upc) {
     else if (titleLower.includes('tank')) category = 'Tank Top';
     else if (titleLower.includes('sleeveless')) category = 'Sleeveless';
     else if (titleLower.includes('polo')) category = 'Polo';
+    else if (titleLower.includes('shacket')) category = 'Shacket';
     else if (titleLower.includes('shirt') || titleLower.includes('tee') || titleLower.includes('t-shirt')) category = 'T-Shirt';
     else if (titleLower.includes('vest')) category = 'Vest';
     else if (titleLower.includes('activewear')) category = 'Activewear';
@@ -5640,7 +5641,7 @@ function clBuildEbayCategory() {
     'Shoes':'Shoes','Sneakers':'Athletic Shoes','Boots':'Boots',
     'Skirt':'Skirts','Coat':'Jackets & Coats','Blouse':'Tops & Blouses',
     'Tank Top':'Tops & Blouses','Sleeveless':'Tops & Blouses','Vest':'Jackets & Coats',
-    'Polo':'Shirts','Activewear':'Activewear','Activewear Top':'Tops & Blouses','Activewear Bottom':'Pants',
+    'Polo':'Shirts','Shacket':'Shirts','Activewear':'Activewear','Activewear Top':'Tops & Blouses','Activewear Bottom':'Pants',
     'Swimwear':'Swimwear','Scrubs':'Scrubs',
   };
   return map[cl.category] || cl.category || '';
@@ -5651,16 +5652,17 @@ function clGetEbayCategoryId() {
   const m = cl.gender === 'mens' ? {
     'Jeans':11483,'Pants':57989,'Shorts':15689,'T-Shirt':15687,
     'Shirt':57990,'Jacket':57988,'Coat':57988,'Vest':15691,'Hoodie':155183,'Sweatshirt':155183,
+    'Shacket':57990,
     'Sweater':11484,'Shoes':93427,'Sneakers':15709,'Boots':11498,
     'Dress':15687,'Skirt':15687,'Blouse':57990,'Tank Top':15687,'Sleeveless':15687,
     'Polo':57990,'Activewear':137084,'Activewear Top':137085,'Activewear Bottom':137086,'Swimwear':15690,'Scrubs':11516,
   } : cl.gender === 'kids' ? {
     'Jeans':57989,'Pants':57989,'Dress':3009,'T-Shirt':3008,
-    'Shirt':3008,'Shoes':57929,'Tank Top':3008,'Sleeveless':3008,'Vest':3008,
+    'Shirt':3008,'Shoes':57929,'Tank Top':3008,'Sleeveless':3008,'Vest':3008,'Shacket':3008,
     'Polo':3008,'Activewear':3008,'Activewear Top':3008,'Activewear Bottom':3008,'Swimwear':3008,'Scrubs':3008,
   } : {
     'Dress':63861,'Jeans':11554,'Pants':63863,'Shorts':11555,
-    'T-Shirt':53159,'Shirt':53159,'Blouse':53159,'Jacket':63862,'Vest':63862,
+    'T-Shirt':53159,'Shirt':53159,'Blouse':53159,'Jacket':63862,'Vest':63862,'Shacket':53159,
     'Coat':63862,'Hoodie':155183,'Sweatshirt':155183,'Sweater':63866,'Skirt':63864,
     'Shoes':55793,'Sneakers':15709,'Boots':53557,'Tank Top':53159,'Sleeveless':53159,
     'Polo':53159,'Activewear':185079,'Activewear Top':185082,'Activewear Bottom':185081,'Swimwear':63867,'Scrubs':11516,
