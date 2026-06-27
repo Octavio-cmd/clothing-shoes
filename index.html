@@ -5507,6 +5507,7 @@ async function clSaveImgbbKey() {
   if (!v) { toast('⚠️ Enter ImgBB API key'); return; }
   
   const savedLocally = await saveToIndexedDB('imgbb_key', v);
+  localStorage.setItem('cl_imgbb_key', v);
   
   if (savedLocally) {
     document.getElementById('imgbb-status').textContent = '⏳ Sincronizando...';
