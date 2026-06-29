@@ -3528,6 +3528,7 @@ const CL_COLORS = [
   {name:'Red', hex:'#c62828'},  {name:'Pink', hex:'#e91e96'}, {name:'Purple', hex:'#6a1b9a'},
   {name:'Green', hex:'#2e7d32'},{name:'Olive', hex:'#827717'},{name:'Yellow', hex:'#f9a825'},
   {name:'Orange', hex:'#e65100'},{name:'Brown', hex:'#4e342e'},{name:'Beige', hex:'#d7ccc8'},
+  {name:'Tan', hex:'#d2b48c'},
   {name:'Multicolor', hex:'linear-gradient(135deg,#f00,#0f0,#00f)'},{name:'Other', hex:'#333'}
 ];
 
@@ -5269,7 +5270,7 @@ function clRenderReview() {
       <span style="font-size:16px;font-weight:800;color:var(--sv)">💰</span>
       <span style="font-size:14px;color:var(--mu)">Precio eBay:</span>
       <span style="font-size:16px;font-weight:800;color:var(--sv)">$</span>
-      <input id="cl-price-input" type="number" step="0.01" min="0.99" value="${cl.suggestedPrice > 0 ? cl.suggestedPrice.toFixed(2) : '19.99'}"
+      <input id="cl-price-input" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" step="0.01" min="0.99" value="${cl.suggestedPrice > 0 ? cl.suggestedPrice.toFixed(2) : '19.99'}"
         style="width:90px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
         oninput="cl.price=this.value">
     </div>
