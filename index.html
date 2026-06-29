@@ -4967,7 +4967,7 @@ function clRenderPhotos() {
 // 1. Detect product bounding box (non-transparent pixels)
 // 2. Crop to product
 // 3. Center on white 1200x1200 canvas with padding
-function applyWhiteSquare(dataUrl, size=1500) {
+function applyWhiteSquare(dataUrl, size=1600) {
   return new Promise(resolve => {
     const timeoutId = setTimeout(() => {
       console.warn('⏱ applyWhiteSquare timeout — creating fallback white square');
@@ -4987,6 +4987,8 @@ function applyWhiteSquare(dataUrl, size=1500) {
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         
         // Llenar fondo blanco
         ctx.fillStyle = '#FFFFFF';
@@ -5012,14 +5014,14 @@ function applyWhiteSquare(dataUrl, size=1500) {
         if (x0>=x1 || y0>=y1) { x0=0; x1=img.width; y0=0; y1=img.height; }
         
         const cropW = x1-x0, cropH = y1-y0;
-        const pad = size * 0.15, maxSide = size - pad*2;
+        const pad = size * 0.06, maxSide = size - pad*2;
         const ratio = Math.min(maxSide/cropW, maxSide/cropH);
         const dW = cropW*ratio, dH = cropH*ratio;
         const dx = (size-dW)/2, dy = (size-dH)/2;
         
         // Dibujar producto centrado sobre fondo blanco
         ctx.drawImage(img, x0, y0, cropW, cropH, dx, dy, dW, dH);
-        resolve(canvas.toDataURL('image/jpeg', 1.0));
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
       } catch (err) {
         console.error('Canvas error:', err);
         // Si hay error, retorna fondo blanco puro
@@ -5059,7 +5061,7 @@ function clTakePhoto(slotId) {
       const slot = document.getElementById('slot-' + slotId);
       if (slot) slot.innerHTML = '<div style="text-align:center;padding:20px"><div class="sp" style="width:32px;height:32px;margin:0 auto 8px"></div><div style="font-size:11px;color:var(--mu)">Processing...</div></div>';
 
-      let dataUrl = await clCompressImage(file, 900, 0.75);
+      let dataUrl = await clCompressImage(file, 1600, 0.92);
 
       // SOLO para FRONT y BACK - procesar con Railway rembg
       if ((slotId === 'front' || slotId === 'back')) {
@@ -5087,7 +5089,7 @@ function clTakePhoto(slotId) {
             if (slot) slot.innerHTML = '<div style="text-align:center;padding:20px"><div class="sp" style="width:28px;height:28px;margin:0 auto 8px"></div><div style="font-size:11px;color:var(--gd)">Applying white background...</div></div>';
             
             // Intentar aplicar fondo blanco
-            const whiteSquareUrl = await applyWhiteSquare(pngUrl, 1500);
+            const whiteSquareUrl = await applyWhiteSquare(pngUrl, 1600);
             
             // Si applyWhiteSquare retorna algo vacío o inválido, usa PNG directamente
             if (whiteSquareUrl && whiteSquareUrl.length > 100) {
