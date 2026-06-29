@@ -4999,9 +4999,8 @@ function applyWhiteSquare(dataUrl, size=1500) {
         const px = tmp.getContext('2d').getImageData(0, 0, img.width, img.height).data;
         
         let x0=img.width, x1=0, y0=img.height, y1=0;
-        const margin = Math.round(img.width * 0.05);
-        for (let y=margin; y<img.height-margin; y++) {
-          for (let x=margin; x<img.width-margin; x++) {
+        for (let y=0; y<img.height; y++) {
+          for (let x=0; x<img.width; x++) {
             if (px[(y*img.width+x)*4+3] > 15) {
               if (x<x0) x0=x; if (x>x1) x1=x;
               if (y<y0) y0=y; if (y>y1) y1=y;
@@ -5013,7 +5012,7 @@ function applyWhiteSquare(dataUrl, size=1500) {
         if (x0>=x1 || y0>=y1) { x0=0; x1=img.width; y0=0; y1=img.height; }
         
         const cropW = x1-x0, cropH = y1-y0;
-        const pad = size * 0.1, maxSide = size - pad*2;
+        const pad = size * 0.15, maxSide = size - pad*2;
         const ratio = Math.min(maxSide/cropW, maxSide/cropH);
         const dW = cropW*ratio, dH = cropH*ratio;
         const dx = (size-dW)/2, dy = (size-dH)/2;
