@@ -3222,10 +3222,6 @@ function clShowSession() {
         <div style="font-size:11px;font-weight:400;margin-top:2px">Upload to eBay → Reports → Try it now → Upload template</div>
       </button>
 
-      <button onclick="clExportCSV();this.closest('div[style]').remove()" style="width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:12px;color:var(--mu);font-size:13px;cursor:pointer;margin-bottom:10px">
-        📊 Export Internal CSV (Google Sheets format)
-      </button>
-
       <button onclick="clClearSession();this.closest('div[style]').remove()" style="width:100%;background:none;border:1px solid var(--dw);border-radius:10px;padding:10px;color:var(--dw);font-size:13px;cursor:pointer;margin-bottom:8px">🗑 Clear Session (start fresh)</button>
       <button onclick="this.closest('div[style]').remove()" style="width:100%;background:none;border:none;padding:10px;color:var(--mu);font-size:14px;cursor:pointer">Cancel</button>
     </div>`;
@@ -5991,6 +5987,7 @@ async function clSubmit() {
     if (status) status.textContent = '✅ Saved! ' + n + ' items ready to export for eBay.';
   } catch(e) {
     console.warn('eBay session save error:', e);
+    toast('⚠️ Error guardando sesión: ' + (e.message || e));
   }
 
   setTimeout(() => {
@@ -6012,100 +6009,46 @@ function clUpdateClFAB() {
   fab.classList.toggle('on', clBulk.length > 0);
 }
 
-function clExportCSV() {
-  var sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
-  if (!sess.length) { toast('⚠️ No items in session'); return; }
-
-  // Columnas del registro interno
-  var cols = [
-    'SKU','Fecha','Marca','Categoria','Genero','Talla','Color','Condicion',
-    'Precio_eBay','Titulo_eBay','URL_Fotos','Descripcion','Defectos','Notas'
-  ];
-
-  function q(v) {
-    v = String(v == null ? '' : v);
-    if (v.indexOf(',') >= 0 || v.indexOf('"') >= 0 || v.indexOf('\n') >= 0) {
-      return '"' + v.replace(/"/g, '""') + '"';
-    }
-    return v;
-  }
-
-  var rows = sess.map(function(it) {
-    return [
-      it.sku || '',
-      it.timestamp || new Date().toISOString().slice(0,19).replace('T',' '),
-      it.brand || '',
-      it.type || it.category || '',
-      it.department || '',
-      it.size || '',
-      it.color || '',
-      it.conditionId == 1000 ? 'NWT' : it.conditionId == 1500 ? 'NWOT' : 'Used',
-      it.price || '',
-      it.title || '',
-      it.photos || '',
-      (it.description || '').replace(/<[^>]*>/g, '').trim(),
-      (it.defects || []).join(', '),
-      it.notes || ''
-    ].map(q).join(',');
-  });
-
-  var now = new Date();
-  var stamp = now.toISOString().slice(0,10) + '-'
-    + now.getHours().toString().padStart(2,'0')
-    + now.getMinutes().toString().padStart(2,'0');
-  var fname = 'Registro-Interno-' + stamp + '-' + sess.length + 'items.csv';
-  var csv = [cols.join(',')].concat(rows).join('\r\n');
-
-  // 1. Descargar localmente siempre
-  var blob = new Blob([csv], {type:'text/csv'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = fname;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
-
-  // 2. Intentar subir a Google Drive
-  var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
-  if (driveUrl) {
-    toast('📤 Subiendo registro a Google Drive...');
-    fetch(driveUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({csv: csv, filename: fname}),
-      headers: {'Content-Type': 'text/plain'}
-    }).then(function() {
-      // Mostrar confirmación visual
-      var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
-        + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        + 'padding:30px;gap:16px;text-align:center';
-      ov.innerHTML = '<div style="font-size:60px">📊</div>'
-        + '<div style="color:#fff;font-size:22px;font-weight:800">Registro guardado</div>'
-        + '<div style="color:#aaa;font-size:14px">' + fname + '</div>'
-        + '<div style="color:#aaa;font-size:13px;line-height:1.8">'
-        + '✅ ' + sess.length + ' prendas — ' + sess.map(function(r){return r.sku}).join(', ') + '<br><br>'
-        + '📁 Subido a <b style="color:#fff">Google Drive</b><br>'
-        + '💾 También descargado en tu iPhone</div>'
-        + '<a href="https://drive.google.com/drive/folders" target="_blank" '
-        + 'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
-        + 'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
-        + '<button onclick="this.parentElement.remove()" '
-        + 'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
-        + 'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
-      document.body.appendChild(ov);
-    }).catch(function() {
-      toast('✅ ' + sess.length + ' prendas — descargado en iPhone');
-    });
-  } else {
-    toast('✅ ' + sess.length + ' prendas exportadas');
-  }
-}
-
 
 // ── FILE EXCHANGE CSV ─────────────────────────────────────
+// URL del Apps Script conectado a la hoja "Savvy Scanner - Registro de Productos"
+var CL_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzXNyv3TFgP2R0ecy2h53xZlAyQJA2W_F7qIa4tGzWHb46mYBxOhcLES8szlz9_Eu9QAg/exec';
+
+function clSendToRegistroSheet(sess) {
+  if (!sess.length) return;
+  var items = sess.map(function(it) {
+    return {
+      sku: it.sku || '',
+      fecha: it.timestamp || new Date().toISOString().slice(0,19).replace('T',' '),
+      marca: it.brand || '',
+      categoria: it.type || it.category || '',
+      genero: it.department || '',
+      talla: it.size || '',
+      color: it.color || '',
+      condicion: it.conditionId == 1000 ? 'NWT' : it.conditionId == 1500 ? 'NWOT' : 'Used',
+      precio: it.price || '',
+      titulo: it.title || '',
+      fotos: it.photos || '',
+      descripcion: (it.description || '').replace(/<[^>]*>/g, '').trim(),
+      defectos: (it.defects || []).join(', '),
+      notas: it.notes || ''
+    };
+  });
+  fetch(CL_SHEET_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({items: items}),
+    headers: {'Content-Type': 'text/plain'}
+  }).catch(function(e) { console.warn('Error enviando a Sheet de registro:', e); });
+}
+
 function clExportEbayCSV() {
   var sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
   if (!sess.length) { toast('⚠️ No items — complete a listing first'); return; }
+
+  // Enviar también a la hoja de registro de Google Sheets (en paralelo, no bloquea)
+  clSendToRegistroSheet(sess);
+
   function q(v) {
     v = String(v==null?'':v);
     return (v.indexOf(',')>=0||v.indexOf('"')>=0||v.indexOf('\n')>=0)
