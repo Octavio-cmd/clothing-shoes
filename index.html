@@ -3909,7 +3909,9 @@ async function clLookupBarcode(upc) {
     const data = await res.json();
 
     // El backend devuelve { data: {...}, status: 'success' }, no { found, product }
-    if (data.status !== 'success' || !data.data) {
+    // Aceptar si hay datos válidos, sin depender únicamente de "status"
+    // (las respuestas desde caché pueden no incluir status en algunas versiones del backend)
+    if (!data.data || (!data.data.name && !data.data.brand)) {
       resultDiv.innerHTML = '⚠️ Not found. Fill in manually below.';
       return;
     }
