@@ -6020,6 +6020,7 @@ function clSendToRegistroSheet(sess) {
   var items = sess.map(function(it) {
     return {
       sku: it.sku || '',
+      ubicacion: it.warehouseLocation || '',
       fecha: it.timestamp || new Date().toISOString().slice(0,19).replace('T',' '),
       marca: it.brand || '',
       categoria: it.type || it.category || '',
@@ -6030,7 +6031,6 @@ function clSendToRegistroSheet(sess) {
       precio: it.price || '',
       titulo: it.title || '',
       fotos: it.photos || '',
-      ubicacion: it.warehouseLocation || '',
       descripcion: (it.description || '').replace(/<[^>]*>/g, '').trim(),
       defectos: (it.defects || []).join(', '),
       notas: it.notes || ''
