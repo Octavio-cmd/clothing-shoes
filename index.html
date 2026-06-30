@@ -3918,9 +3918,12 @@ async function clLookupBarcode(upc) {
 
     const p = data.data;
     const title = p.name || '';
-    const avgPrice = p.ebay_price || p.amazon_price || p.walmart_price || 0;
+    const itemPrice = p.ebay_price || 0;
+    const shippingPrice = p.ebay_shipping || 0;
+    const totalPrice = p.ebay_total || itemPrice;
+    const avgPrice = totalPrice || p.amazon_price || p.walmart_price || 0;
     const minPrice = avgPrice;
-    const suggestedPrice = p.suggested_price || (avgPrice > 0 ? avgPrice * 0.75 : 19.99);
+    const suggestedPrice = p.suggested_price || (avgPrice > 0 ? avgPrice * 0.95 : 19.99);
 
     // Usar marca de Algopix si viene; si no, detectar del título
     let brand = (p.brand || '').trim();
@@ -4001,7 +4004,10 @@ async function clLookupBarcode(upc) {
       <div style="color:#00e676;font-weight:700;margin-bottom:6px">✅ Found! ${sourceLabel}</div>
       <div>🏷️ <strong>Brand:</strong> ${brand}</div>
       <div style="margin:4px 0">📦 ${title.substring(0, 80)}${title.length > 80 ? '...' : ''}</div>
-      ${avgPrice > 0 ? `<div>💰 <strong>eBay price:</strong> $${avgPrice.toFixed(2)}</div>` : '<div style="color:var(--mu)">💰 Sin precio disponible (verificar cuota de Algopix)</div>'}
+      ${totalPrice > 0 ? `
+        <div>💰 <strong>Precio:</strong> $${itemPrice.toFixed(2)} + envío $${shippingPrice.toFixed(2)} = <strong style="color:#00e676">$${totalPrice.toFixed(2)} total</strong></div>
+        <div style="font-size:11px;color:var(--mu);margin-top:2px">📊 Precio más bajo en eBay (Buy It Now)</div>
+      ` : '<div style="color:var(--mu)">💰 Sin precio disponible (verificar cuota de Algopix)</div>'}
       <div>📏 <strong>Size detected:</strong> ${size}</div>
       <div style="margin-top:4px">🗂️ <strong>Category:</strong> ${category}</div>
       <div style="margin-top:4px">🔖 <strong>SKU:</strong> <span style="font-family:monospace;color:var(--ac)">${cl.sku}</span></div>
