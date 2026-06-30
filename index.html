@@ -5702,6 +5702,7 @@ function clBuildEbayRow(photoUrls) {
     description:desc || ('<p>' + title + '</p><p>Ships fast from Lumberton, NC.</p>'),
     price:      priceEl ? priceEl.value : '19.99',
     location:   'Lumberton, NC',
+    warehouseLocation: cl.location || '',
   };
 }
 
@@ -6029,6 +6030,7 @@ function clSendToRegistroSheet(sess) {
       precio: it.price || '',
       titulo: it.title || '',
       fotos: it.photos || '',
+      ubicacion: it.warehouseLocation || '',
       descripcion: (it.description || '').replace(/<[^>]*>/g, '').trim(),
       defectos: (it.defects || []).join(', '),
       notas: it.notes || ''
