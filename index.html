@@ -3894,40 +3894,43 @@ async function clLookupBarcode(upc) {
   const resultDiv = $('cl-barcode-result');
   if (!resultDiv) return;
   resultDiv.style.display = 'block';
-  resultDiv.innerHTML = '<span style="color:var(--mu)">🔍 Searching eBay for UPC ' + upc + '...</span>';
+  resultDiv.innerHTML = '<span style="color:var(--mu)">🔍 Searching for UPC ' + upc + '...</span>';
 
   try {
     // Llamar al endpoint /search-upc en Railway
     const RAILWAY_URL = 'https://savvy-ebay-prices-production.up.railway.app';
     const res = await fetch(`${RAILWAY_URL}/search-upc?upc=${encodeURIComponent(upc)}`);
-    
+
     if (!res.ok) {
       resultDiv.innerHTML = '⚠️ Error: ' + res.status + '. Fill in manually below.';
       return;
     }
-    
+
     const data = await res.json();
 
-    if (!data.found || !data.product) {
-      resultDiv.innerHTML = '⚠️ Not found on eBay. Fill in manually below.';
+    // El backend devuelve { data: {...}, status: 'success' }, no { found, product }
+    if (data.status !== 'success' || !data.data) {
+      resultDiv.innerHTML = '⚠️ Not found. Fill in manually below.';
       return;
     }
 
-    const title = data.product.title || '';
-    const price = data.product.price || 0;
-    const seller = data.product.seller || '';
-    const avgPrice = data.stats?.avgPrice || price;
-    const minPrice = data.stats?.minPrice || price;
-    const suggestedPrice = data.suggested?.price || (avgPrice * 0.75);
+    const p = data.data;
+    const title = p.name || '';
+    const avgPrice = p.ebay_price || p.amazon_price || p.walmart_price || 0;
+    const minPrice = avgPrice;
+    const suggestedPrice = p.suggested_price || (avgPrice > 0 ? avgPrice * 0.75 : 19.99);
 
-    // Auto-detectar marca del título
-    let brand = 'Unknown';
+    // Usar marca de Algopix si viene; si no, detectar del título
+    let brand = (p.brand || '').trim();
     const titleLower = title.toLowerCase();
-    const commonBrands = ['nike', 'adidas', 'puma', 'reebok', 'under armour', 'gap', 'ralph lauren', 'tommy hilfiger', 'levi', 'levis', 'calvin klein', 'champion', 'carhartt', 'supreme'];
-    for (let b of commonBrands) {
-      if (titleLower.includes(b)) {
-        brand = b.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        break;
+    if (!brand) {
+      brand = 'Unknown';
+      const commonBrands = ['nike', 'adidas', 'puma', 'reebok', 'under armour', 'gap', 'ralph lauren', 'tommy hilfiger', 'levi', 'levis', 'calvin klein', 'champion', 'carhartt', 'supreme'];
+      for (let b of commonBrands) {
+        if (titleLower.includes(b)) {
+          brand = b.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          break;
+        }
       }
     }
 
@@ -3962,10 +3965,10 @@ async function clLookupBarcode(upc) {
       { regex: /([0-9]{1,2})\s*(us|men|women|kid)/i, label: (m) => m },
       { regex: /^([0-9]{1,2})$/, label: (m) => m }
     ];
-    for (let p of sizePatterns) {
-      const match = title.match(p.regex);
+    for (let pat of sizePatterns) {
+      const match = title.match(pat.regex);
       if (match) {
-        size = p.label(match[1]);
+        size = pat.label(match[1]);
         break;
       }
     }
@@ -3991,12 +3994,12 @@ async function clLookupBarcode(upc) {
     if (skuIn) skuIn.value = cl.sku;
 
     // Mostrar resultado
+    const sourceLabel = p.data_source || '';
     resultDiv.innerHTML = `
-      <div style="color:#00e676;font-weight:700;margin-bottom:6px">✅ Found on eBay!</div>
+      <div style="color:#00e676;font-weight:700;margin-bottom:6px">✅ Found! ${sourceLabel}</div>
       <div>🏷️ <strong>Brand:</strong> ${brand}</div>
       <div style="margin:4px 0">📦 ${title.substring(0, 80)}${title.length > 80 ? '...' : ''}</div>
-      ${avgPrice > 0 ? `<div>💰 <strong>Avg price:</strong> $${avgPrice.toFixed(2)}</div>` : ''}
-      ${minPrice > 0 ? `<div>📊 <strong>Min price:</strong> $${minPrice.toFixed(2)}</div>` : ''}
+      ${avgPrice > 0 ? `<div>💰 <strong>eBay price:</strong> $${avgPrice.toFixed(2)}</div>` : '<div style="color:var(--mu)">💰 Sin precio disponible (verificar cuota de Algopix)</div>'}
       <div>📏 <strong>Size detected:</strong> ${size}</div>
       <div style="margin-top:4px">🗂️ <strong>Category:</strong> ${category}</div>
       <div style="margin-top:4px">🔖 <strong>SKU:</strong> <span style="font-family:monospace;color:var(--ac)">${cl.sku}</span></div>
