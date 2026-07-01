@@ -3979,6 +3979,17 @@ async function clLookupBarcode(upc) {
     }
 
     // Auto-rellenar datos
+    // Si la marca viene vacía del backend, extraerla de la primera palabra del título
+    if (!brand || brand === 'Unknown' || brand === '') {
+      // Extraer la primera palabra del título como marca (suele ser la marca)
+      const firstWord = title.split(/\s+/)[0] || '';
+      if (firstWord.length > 1 && !/^\d/.test(firstWord)) {
+        brand = firstWord;
+      }
+    }
+    // Capitalizar correctamente la marca
+    brand = brand.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
     cl.brand = CL_BRANDS && CL_BRANDS.includes(brand) ? brand : 'Other';
     if (!CL_BRANDS?.includes(brand) && brand !== 'Unknown') cl.brandCustom = brand;
     cl.category = category;
@@ -3989,10 +4000,10 @@ async function clLookupBarcode(upc) {
     cl.pricing = { active: { low: minPrice }, sold: { median: avgPrice } };
     cl.pricingBase = { activeLow: minPrice, soldMed: avgPrice };
 
-    // SKU
-    const brandCode = (brand || 'GEN').replace(/[^A-Z0-9]/gi, '').substring(0, 3).toUpperCase();
-    const catRef = (category || 'ITEM').replace(/\s+/g, '-').toUpperCase();
-    cl.sku = `${brandCode}-${upc.substring(upc.length - 5)}-${catRef}`;
+    // SKU: 3 primeras letras de marca + UPC completo + -1
+    const brandCode = brand.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase() || 'GEN';
+    const upcFull = upc; // UPC completo (12 dígitos)
+    cl.sku = `${brandCode}-${upcFull}-1`;
     const skuDisplay = $('cl-sku-display');
     if (skuDisplay) skuDisplay.textContent = cl.sku;
     const skuIn = $('cl-sku-in');
