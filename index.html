@@ -4000,7 +4000,11 @@ async function clLookupBarcode(upc) {
 
     // Mostrar resultado
     const sourceLabel = p.data_source || '';
-    resultDiv.innerHTML = `
+    // Construir URL de búsqueda en eBay con filtros: Buy It Now, Sort: Price+Shipping lowest
+    const ebaySearchUrl = 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(cl.upc)
+      + '&LH_BIN=1&_sop=15&LH_ItemCondition=3&_ipg=25';
+
+      resultDiv.innerHTML = `
       <div style="color:#00e676;font-weight:700;margin-bottom:6px">✅ Found! ${sourceLabel}</div>
       <div>🏷️ <strong>Brand:</strong> ${brand}</div>
       <div style="margin:4px 0">📦 ${title.substring(0, 80)}${title.length > 80 ? '...' : ''}</div>
@@ -4011,6 +4015,11 @@ async function clLookupBarcode(upc) {
       <div>📏 <strong>Size detected:</strong> ${size}</div>
       <div style="margin-top:4px">🗂️ <strong>Category:</strong> ${category}</div>
       <div style="margin-top:4px">🔖 <strong>SKU:</strong> <span style="font-family:monospace;color:var(--ac)">${cl.sku}</span></div>
+      <a href="${ebaySearchUrl}" target="_blank" rel="noopener"
+         style="display:block;margin-top:10px;background:#0064d2;border-radius:10px;padding:10px 14px;
+                color:#fff;font-weight:700;font-size:13px;text-decoration:none;text-align:center">
+        🔍 Ver precio real en eBay →
+      </a>
       <div style="margin-top:8px;font-size:11px;color:var(--mu)">✔ Datos pre-llenados → Continúa para confirmar</div>
     `;
 
