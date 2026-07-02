@@ -3506,7 +3506,7 @@ const CL_SHOE_DEFECTS = [
 
 const CL_BRANDS = ['Nike','Adidas','Under Armour','Champion','Puma','Reebok','New Balance',
   'Levi\'s','Wrangler','Lee','Gap','Old Navy','H&M','Zara','Forever 21','American Eagle',
-  'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Nautica',
+  'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Polo Ralph Lauren','Nautica',
   'Columbia','North Face','Carhartt','Patagonia','Carter\'s','OshKosh','Other'];
 
 const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter Zip','Sweatshirt','Sweater',
@@ -4762,6 +4762,7 @@ function clInitSizeWheel() {
 
 function clSetBrand(b) {
   cl.brand = b;
+  cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
   clInitSizeWheel();
   document.querySelectorAll('#brand-chips .cl-chip').forEach(el => el.classList.toggle('sel', el.textContent===b));
   const customIn = $('brand-custom-in');
@@ -4773,6 +4774,7 @@ function clSetCat(c) {
   // Initialize INSEAM listeners whenever category changes
   clInitInseamListeners();
   cl.category = c;
+  cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
   document.querySelectorAll('#cat-chips .cl-chip').forEach(el => el.classList.toggle('sel', el.textContent===c));
   // Inseam — Pants / Jeans / Shorts
   const needsInseam = ['Pants','Jeans','Shorts'].includes(c);
@@ -4821,6 +4823,7 @@ function clSetShoeWidth(v) {
 
 function clSetColor(c) {
   cl.color = c;
+  cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
   document.querySelectorAll('.cl-color-chip').forEach(el => el.classList.toggle('sel', el.title===c));
   const customIn = $('color-custom-in');
   if (customIn) customIn.style.display = c==='Other'?'block':'none';
@@ -5847,24 +5850,24 @@ function clOpenSheet(field) {
 
   if (field === 'brand') {
     body.innerHTML = '<div class="cl-chips">' + CL_BRANDS.map(function(b) {
-      var safeBrand=b.replace(/"/g,'&quot;');return '<button class="cl-chip' + (cl.brand===b?' sel':'') + '" data-b="'+safeBrand+'" onclick="cl.brand=this.dataset.b;clUpdateSKUDisplay();clCloseSheet();clRenderReview()">' + b + '</button>';
+      var safeBrand=b.replace(/"/g,'&quot;');return '<button class="cl-chip' + (cl.brand===b?' sel':'') + '" data-b="'+safeBrand+'" onclick="cl.brand=this.dataset.b;cl._ebayTitle=null;cl._ebayDesc=null;clUpdateSKUDisplay();clCloseSheet();clRenderReview()">' + b + '</button>';
     }).join('') + '</div>';
 
   } else if (field === 'category') {
     body.innerHTML = '<div class="cl-chips">' + CL_CATS.map(function(c) {
-      return '<button class="cl-chip' + (cl.category===c?' sel':'') + '" onclick="cl.category=\'' + c + '\';clCloseSheet();clRenderReview()">' + c + '</button>';
+      return '<button class="cl-chip' + (cl.category===c?' sel':'') + '" onclick="cl._ebayTitle=null;cl._ebayDesc=null;cl.category=\'' + c + '\';clCloseSheet();clRenderReview()">' + c + '</button>';
     }).join('') + '</div>';
 
   } else if (field === 'size') {
     body.innerHTML =
       '<div class="cl-size-wrap"><div class="wh-fade-top"></div><div class="wh-indicator"></div><div class="wh-fade-bot"></div><div class="wheel-list" id="sheet-wheel-list"></div></div>' +
       '<div style="text-align:center;margin:10px 0 4px;font-size:13px;color:var(--mu)">Selected size: <strong id="sheet-size-lbl" style="color:var(--ac);font-size:15px">' + cl.size + '</strong></div>' +
-      '<button class="add-btn" id="sheet-size-confirm" onclick="clCloseSheet();clRenderReview()" style="margin-top:8px">✓ Confirmar talla</button>';
+      '<button class="add-btn" id="sheet-size-confirm" onclick="cl._ebayTitle=null;cl._ebayDesc=null;clCloseSheet();clRenderReview()" style="margin-top:8px">✓ Confirmar talla</button>';
     setTimeout(function() { clInitSheetWheel(); }, 40);
 
   } else if (field === 'color') {
     body.innerHTML = '<div class="cl-colors">' + CL_COLORS.map(function(c) {
-      return '<button class="cl-color-chip' + (cl.color===c.name?' sel':'') + '" onclick="cl.color=\'' + c.name + '\';clCloseSheet();clRenderReview()" style="--swatch:' + c.hex + '" title="' + c.name + '"><span class="swatch"></span><span class="cname">' + c.name + '</span></button>';
+      return '<button class="cl-color-chip' + (cl.color===c.name?' sel':'') + '" onclick="cl._ebayTitle=null;cl._ebayDesc=null;cl.color=\'' + c.name + '\';clCloseSheet();clRenderReview()" style="--swatch:' + c.hex + '" title="' + c.name + '"><span class="swatch"></span><span class="cname">' + c.name + '</span></button>';
     }).join('') + '</div>';
 
   } else if (field === 'condition') {
