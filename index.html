@@ -505,11 +505,11 @@
   <div class="dash-tagline"><span>Savvy</span> Scanner</div>
   <div class="dash-sub">Select a module to get started</div>
   <div class="dash-grid">
-    <a href="https://octavio-cmd.github.io/product-scanner/" class="dash-card scanner" style="text-decoration:none;color:inherit">
+    <div class="dash-card scanner" onclick="openScanner()" style="cursor:pointer">
       <div class="dc-icon">📦</div>
       <div class="dc-title">Product Scanner</div>
       <div class="dc-sub">UPC scanning · Pricing · Bulk eBay listings</div>
-    </a>
+    </div>
     <div class="dash-card clothing" onclick="openClothing()">
       <div class="dc-icon">👕👟</div>
       <div class="dc-title">Clothing &amp; Shoes</div>
@@ -559,7 +559,44 @@
   </div>
 </div>
 
-<div class="scr" id="scr-res"><div id="resBody"></div></div>
+<div class="scr" id="scr-res">
+  <!-- ── SCANNER INTEGRADO (idéntico a Clothing & Shoes) ───── -->
+  <div id="ps-scanner-block" style="margin-bottom:12px">
+    <div style="background:var(--sf);border:1.5px solid var(--ac);border-radius:14px;padding:14px 14px 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--ac);letter-spacing:.08em;margin-bottom:8px">📷 SCAN BARCODE — AUTO-FILL FROM eBay</div>
+
+      <div id="ps-barcode-result" style="display:none;margin-bottom:8px;background:var(--sf2);border-radius:10px;padding:10px;font-size:13px"></div>
+
+      <button id="camBtn"
+        ontouchend="event.preventDefault();startCam();"
+        onclick="startCam();"
+        style="width:100%;background:linear-gradient(135deg,#FF6B35,#E71D36);border:none;border-radius:10px;padding:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">
+        📷 Scan Barcode
+      </button>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="upcIn" type="text" inputmode="numeric" placeholder="Or type UPC manually..."
+          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;color:var(--tx);font-size:15px;outline:none"
+          onkeydown="if(event.key==='Enter'){var v=this.value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);}">
+        <button
+          ontouchend="event.preventDefault();(function(){var v=document.getElementById('upcIn').value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);})();"
+          onclick="(function(){var v=document.getElementById('upcIn').value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);})();"
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;color:var(--tx);font-size:20px;cursor:pointer;flex-shrink:0">🔍</button>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="ps-ebay-url" type="text" placeholder="OR paste eBay listing URL..."
+          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;color:var(--tx);font-size:13px;outline:none">
+        <button
+          ontouchend="event.preventDefault();clLookupEbayURL(document.getElementById('ps-ebay-url').value);"
+          onclick="clLookupEbayURL(document.getElementById('ps-ebay-url').value);"
+          style="padding:11px 14px;background:linear-gradient(135deg,#0064d2,#004b9f);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">eBay 🛒</button>
+      </div>
+    </div>
+  </div>
+  <!-- ── RESULTADO DEL PRODUCTO ─────────────────────────────── -->
+  <div id="resBody"><div style="margin-top:24px;text-align:center;color:var(--mu);font-size:13px;line-height:2">📷 Scan a barcode<br>⌨️ Type UPC manually<br>🔗 Paste an eBay URL</div></div>
+</div>
 
 <button class="fab" id="fab">📋 CSV <div class="fbc" id="fabN">0</div></button>
 
@@ -1254,6 +1291,7 @@ async function initImgbbFromIndexedDB() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initImgbbFromIndexedDB();
+    openClothing();
   });
 } else {
   initImgbbFromIndexedDB();
