@@ -1,31 +1,32 @@
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
+const SAVVY_CONFIG='https://savvy-config-production.up.railway.app';
 const DEF_EBAY='StevenGa-SavvySca-PRD-81addb012-655f2649';
-// ── Default API keys (loaded from Cloudflare Worker env vars)
+// ── Default API keys (loaded from savvy-config Railway server)
 let DEFAULT_PHOTOROOM_KEY = '';
 let DEFAULT_RBG_KEY = '';
 let DEFAULT_IMGBB_KEY = '';
 let DEFAULT_CLAUDE_KEY = '';
-// Load keys from worker on startup
+let _keysLoaded = false;
+// Load keys from savvy-config on startup
 (async function loadKeys() {
   try {
-    const r = await fetch(WORKER + '/?action=keys');
+    const r = await fetch(SAVVY_CONFIG + '/config');
     if (r.ok) {
       const d = await r.json();
-      if (d.photoroom) DEFAULT_PHOTOROOM_KEY = d.photoroom;
-      if (d.rbg)       DEFAULT_RBG_KEY       = d.rbg;
-      if (d.imgbb)     DEFAULT_IMGBB_KEY      = d.imgbb;
-      if (d.claude)    DEFAULT_CLAUDE_KEY     = d.claude;
+      if (d.imgbb)      DEFAULT_IMGBB_KEY  = d.imgbb;
+      if (d.claude)     DEFAULT_CLAUDE_KEY = d.claude;
+      if (d.sheets_url) localStorage.setItem('cl_sheets_url', d.sheets_url);
+      if (d.drive_url)  localStorage.setItem('cl_drive_url',  d.drive_url);
     }
-  } catch(e) { console.warn('Could not load keys from worker'); }
+  } catch(e) { console.warn('Could not load keys from savvy-config'); }
   // Fallback local (encoded)
   const _k = [
-    ['DEFAULT_PHOTOROOM_KEY', atob('c2tfcHJfZGVmYXVsdF9iNmRhM2NlNDAzYzM0NDFhZDE2MWRmNzYxODE5MTU3ZDEyODY2ZWVm')],
-    ['DEFAULT_RBG_KEY',       atob('RWFpSkZDRGNoSzJMb0twMlU3blNadVpD')],
-    ['DEFAULT_IMGBB_KEY',     atob('MWU4ZWNlYTJmYzJlYTkxOGNhY2E3NDM2OTkyOGVmNjM=')],
-    ['DEFAULT_CLAUDE_KEY',    ''], // User enters key manually in Settings
+    ['DEFAULT_IMGBB_KEY', atob('ZDZlMDg1NWMyNGIxNWZjN2JjOWNlYjY2ZTA1OGY0M2M=')],
   ];
   _k.forEach(([k, v]) => { if (!window[k]) window[k] = v; });
+  _keysLoaded = true;
+  if (typeof renderSt === 'function') renderSt();
 })();
 // ── Login System ──────────────────────────────────────────────
 const SAVVY_USERS = {
@@ -512,7 +513,11 @@ function validateSettingsPin() {
   }
 }
 
-function openCfg(){renderSt();$('cfgOv').classList.add('on');}
+function openCfg(){
+  if(!_keysLoaded){ setTimeout(openCfg,300); return; }
+  renderSt();
+  $('cfgOv').classList.add('on');
+}
 function closeCfg(){$('cfgOv').classList.remove('on');}
 
 // ── Savvy Universal Scanner (html5-qrcode) ───────────────────
@@ -5520,6 +5525,9 @@ function clShowExportOptions(csv, fname, count) {
     } else { ta.select(); document.execCommand('copy'); toast('✅ Copiado!'); }
   };
 }
+
+// Auto-open Clothing & Shoes module on load
+document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
 
 // Auto-open Clothing & Shoes module on load
 document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
