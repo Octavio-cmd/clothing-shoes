@@ -2508,7 +2508,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     showRbgStatus('✅ Remove.bg configured — consider also adding PhotoRoom (75 free/month)', 'var(--gd)');
   }
 
-  // Clothing FAB
+  // Clothing FAB - registered here and also in openClothing for iOS Safari
   const clFab = $('cl-fab');
   if (clFab) {
     clFab.addEventListener('touchend', e => { e.preventDefault(); clShowSession(); });
@@ -2754,6 +2754,14 @@ function openClothing() {
   document.querySelectorAll('.scr').forEach(s => s.classList.remove('on'));
   $('cl-sku').classList.add('on');
   clRenderSKU();
+  // Re-attach cl-fab listener for iOS Safari compatibility
+  setTimeout(function() {
+    const clFab = $('cl-fab');
+    if (clFab) {
+      clFab.ontouchend = function(e) { e.preventDefault(); clShowSession(); };
+      clFab.onclick = clShowSession;
+    }
+  }, 100);
 }
 
 function saveSheetsUrl() {
