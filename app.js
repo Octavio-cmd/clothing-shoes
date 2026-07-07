@@ -5520,3 +5520,6 @@ function clShowExportOptions(csv, fname, count) {
     } else { ta.select(); document.execCommand('copy'); toast('✅ Copiado!'); }
   };
 }
+
+// Auto-open Clothing & Shoes module on load
+document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
