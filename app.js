@@ -5526,8 +5526,8 @@ function clShowExportOptions(csv, fname, count) {
   };
 }
 
-// Auto-open Clothing & Shoes module on load
-document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
+// Auto-open Product Scanner module on load
+document.addEventListener('DOMContentLoaded', function(){ if(typeof openScanner==='function') openScanner(); });
 
-// Auto-open Clothing & Shoes module on load
-document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
+// Auto-open Product Scanner module on load
+document.addEventListener('DOMContentLoaded', function(){ if(typeof openScanner==='function') openScanner(); });
