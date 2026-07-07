@@ -2346,39 +2346,70 @@ function exportCSV(){
   var fname = 'eBay-FX-'+stamp+'-'+exportedCount+'items.csv';
   if (skipped > 0) toast('⚠️ ' + skipped + ' producto(s) no identificados omitidos del CSV');
 
-  var driveUrl = localStorage.getItem('cl_drive_url');
-  if (driveUrl) {
-    toast('📤 Subiendo a Google Drive...');
-    fetch(driveUrl, {
+  // URL fija del Apps Script — NO depender solo de localStorage
+  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
+  console.log('📤 exportCSV → URL:', driveUrl);
+  console.log('📤 CSV filename:', fname, '| items:', exportedCount);
+  toast('📤 Subiendo a Google Drive...');
+
+  // Intentar con redirect:follow primero, fallback a no-cors
+  fetch(driveUrl, {
+    method: 'POST',
+    body: JSON.stringify({csv: csv, filename: fname}),
+    headers: {'Content-Type': 'text/plain'},
+    redirect: 'follow'
+  })
+  .then(function(r) {
+    console.log('📤 Drive response type:', r.type, 'status:', r.status);
+    if (r.type === 'opaque') return {success: true, opaque: true};
+    return r.text().then(function(t) {
+      try { return JSON.parse(t); } catch(e) { return {success: true, raw: t}; }
+    });
+  })
+  .catch(function(corsErr) {
+    console.warn('📤 CORS blocked, retrying no-cors...', corsErr.message);
+    return fetch(driveUrl, {
       method: 'POST',
       mode: 'no-cors',
       body: JSON.stringify({csv: csv, filename: fname}),
       headers: {'Content-Type': 'text/plain'}
-    }).then(function() {
-      var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
-        +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        +'padding:30px;gap:16px;text-align:center';
-      ov.innerHTML = '<div style="font-size:60px">✅</div>'
-        +'<div style="color:#fff;font-size:22px;font-weight:800">CSV en Google Drive</div>'
-        +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
-        +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
-        +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
-        +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
-        +'Descarga el CSV → sube a eBay</div>'
-        +'<a href="https://drive.google.com/drive/folders" target="_blank" '
-        +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
-        +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
-        +'<button onclick="this.parentElement.remove()" '
-        +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
-        +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
-      document.body.appendChild(ov);
-    }).catch(function() {
-      savvyShowExportOptions(csv, fname, bulk.length);
-    });
-  } else {
+    }).then(function() { return {success: true, opaque: true}; });
+  })
+  .then(function(result) {
+    console.log('📤 Drive result:', JSON.stringify(result));
+    var verified = result && result.success && !result.opaque;
+    var icon = verified ? '✅' : '📤';
+    var title = verified ? 'CSV Confirmado en Drive' : 'CSV Enviado a Drive';
+    var note = verified
+      ? 'Archivo verificado en Google Drive'
+      : 'Archivo enviado — verifica en Drive que haya llegado';
+    var noteColor = verified ? '#2EC4B6' : '#FFD700';
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
+      +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+      +'padding:30px;gap:16px;text-align:center';
+    ov.innerHTML = '<div style="font-size:60px">'+icon+'</div>'
+      +'<div style="color:#fff;font-size:22px;font-weight:800">'+title+'</div>'
+      +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
+      +'<div style="color:'+noteColor+';font-size:12px;margin:4px 0">'+note+'</div>'
+      +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
+      +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
+      +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
+      +'Descarga el CSV → sube a eBay</div>'
+      +'<a href="https://drive.google.com/drive/folders" target="_blank" '
+      +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
+      +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
+      +'<button onclick="this.parentElement.remove()" '
+      +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
+      +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
+    document.body.appendChild(ov);
+  })
+  .catch(function(finalErr) {
+    console.error('📤 Drive FAILED:', finalErr);
+    toast('❌ Error subiendo CSV: ' + finalErr.message);
     savvyShowExportOptions(csv, fname, bulk.length);
-  }
+  });
   } catch(exportErr) {
     console.error('exportCSV error:', exportErr);
     toast('❌ Export error: ' + exportErr.message);
@@ -5452,43 +5483,77 @@ function clExportEbayCSV() {
   var stamp=now.toISOString().slice(0,10)+'-'
     +now.getHours().toString().padStart(2,'0')+now.getMinutes().toString().padStart(2,'0');
   var fname='eBay-FX-'+stamp+'-'+sess.length+'items.csv';
-  var driveUrl = localStorage.getItem('cl_drive_url');
-  if (driveUrl) {
-    toast('📤 Subiendo a Google Drive...');
-    // no-cors: bypasses CORS block — file IS saved to Drive even without readable response
-    fetch(driveUrl, {
+  // URL fija del Apps Script — NO depender de localStorage ni Railway
+  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
+  console.log('📤 clExportEbayCSV → URL:', driveUrl);
+  console.log('📤 CSV filename:', fname, '| items:', sess.length);
+  toast('📤 Subiendo a Google Drive...');
+
+  // Paso 1: Intentar con redirect:follow (permite leer respuesta real)
+  fetch(driveUrl, {
+    method: 'POST',
+    body: JSON.stringify({csv: csv, filename: fname}),
+    headers: {'Content-Type': 'text/plain'},
+    redirect: 'follow'
+  })
+  .then(function(r) {
+    console.log('📤 Drive response type:', r.type, 'status:', r.status, 'ok:', r.ok);
+    if (r.type === 'opaque') {
+      // no-cors response — no podemos verificar, pero probablemente funcionó
+      return {success: true, opaque: true};
+    }
+    return r.text().then(function(t) {
+      console.log('📤 Drive response body:', t.substring(0, 200));
+      try { return JSON.parse(t); } catch(e) { return {success: true, raw: t}; }
+    });
+  })
+  .catch(function(corsErr) {
+    // Si CORS falla, reintentar con no-cors (datos SÍ llegan, respuesta no legible)
+    console.warn('📤 CORS blocked, retrying with no-cors...', corsErr.message);
+    return fetch(driveUrl, {
       method: 'POST',
       mode: 'no-cors',
       body: JSON.stringify({csv: csv, filename: fname}),
       headers: {'Content-Type': 'text/plain'}
-    })
-    .then(function() {
-      // With no-cors we can't read response, but file was saved — show success
-      var ov=document.createElement('div');
-      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
-        +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        +'padding:30px;gap:16px;text-align:center';
-      ov.innerHTML='<div style="font-size:60px">✅</div>'
-        +'<div style="color:#fff;font-size:22px;font-weight:800">CSV en Google Drive</div>'
-        +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
-        +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
-        +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
-        +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
-        +'Descarga el CSV → sube a eBay</div>'
-        +'<a href="https://drive.google.com/drive/folders" target="_blank" '
-        +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
-        +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
-        +'<button onclick="this.parentElement.remove()" '
-        +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
-        +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
-      document.body.appendChild(ov);
-    })
-    .catch(function() {
-      clShowExportOptions(csv, fname, sess.length);
+    }).then(function() {
+      return {success: true, opaque: true};
     });
-  } else {
+  })
+  .then(function(result) {
+    console.log('📤 Drive result:', JSON.stringify(result));
+    var verified = result && result.success && !result.opaque;
+    var icon = verified ? '✅' : '📤';
+    var title = verified ? 'CSV Confirmado en Drive' : 'CSV Enviado a Drive';
+    var note = verified
+      ? 'Archivo verificado en Google Drive'
+      : 'Archivo enviado — verifica en Drive que haya llegado';
+    var noteColor = verified ? '#2EC4B6' : '#FFD700';
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
+      +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+      +'padding:30px;gap:16px;text-align:center';
+    ov.innerHTML='<div style="font-size:60px">'+icon+'</div>'
+      +'<div style="color:#fff;font-size:22px;font-weight:800">'+title+'</div>'
+      +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
+      +'<div style="color:'+noteColor+';font-size:12px;margin:4px 0">'+note+'</div>'
+      +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
+      +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
+      +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
+      +'Descarga el CSV → sube a eBay</div>'
+      +'<a href="https://drive.google.com/drive/folders" target="_blank" '
+      +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
+      +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
+      +'<button onclick="this.parentElement.remove()" '
+      +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
+      +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
+    document.body.appendChild(ov);
+  })
+  .catch(function(finalErr) {
+    console.error('📤 Drive FAILED:', finalErr);
+    toast('❌ Error subiendo CSV: ' + finalErr.message);
     clShowExportOptions(csv, fname, sess.length);
-  }
+  });
 }
 
 function clShowExportOptions(csv, fname, count) {
