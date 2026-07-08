@@ -965,7 +965,7 @@ async function openBundlePhoto() {
     }
 
     // Subir imagen JPG real a Google Drive
-    var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+    var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
     if (driveUrl) {
       try {
         if(genDiv) genDiv.textContent='☁️ Subiendo foto a Google Drive...';
@@ -2347,7 +2347,7 @@ function exportCSV(){
   if (skipped > 0) toast('⚠️ ' + skipped + ' producto(s) no identificados omitidos del CSV');
 
   // URL fija del Apps Script — NO depender solo de localStorage
-  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
   var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
   console.log('📤 exportCSV → URL:', driveUrl);
   console.log('📤 CSV filename:', fname, '| items:', exportedCount);
@@ -5484,7 +5484,7 @@ function clExportEbayCSV() {
     +now.getHours().toString().padStart(2,'0')+now.getMinutes().toString().padStart(2,'0');
   var fname='eBay-FX-'+stamp+'-'+sess.length+'items.csv';
   // URL fija del Apps Script — NO depender de localStorage ni Railway
-  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
   var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
   console.log('📤 clExportEbayCSV → URL:', driveUrl);
   console.log('📤 CSV filename:', fname, '| items:', sess.length);
