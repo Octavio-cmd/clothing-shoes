@@ -1,31 +1,31 @@
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
+const SAVVY_CONFIG='https://savvy-config-production.up.railway.app';
 const DEF_EBAY='StevenGa-SavvySca-PRD-81addb012-655f2649';
-// ── Default API keys (loaded from Cloudflare Worker env vars)
+// ── Default API keys (loaded from Railway savvy-config)
 let DEFAULT_PHOTOROOM_KEY = '';
 let DEFAULT_RBG_KEY = '';
 let DEFAULT_IMGBB_KEY = '';
 let DEFAULT_CLAUDE_KEY = '';
-// Load keys from worker on startup
+let _keysLoaded = false;
+// Load keys from Railway on startup
 (async function loadKeys() {
   try {
-    const r = await fetch(WORKER + '/?action=keys');
+    const r = await fetch(SAVVY_CONFIG + '/config');
     if (r.ok) {
       const d = await r.json();
-      if (d.photoroom) DEFAULT_PHOTOROOM_KEY = d.photoroom;
-      if (d.rbg)       DEFAULT_RBG_KEY       = d.rbg;
-      if (d.imgbb)     DEFAULT_IMGBB_KEY      = d.imgbb;
-      if (d.claude)    DEFAULT_CLAUDE_KEY     = d.claude;
+      if (d.imgbb)      DEFAULT_IMGBB_KEY  = d.imgbb;
+      if (d.claude)     DEFAULT_CLAUDE_KEY = d.claude;
+      if (d.sheets_url) localStorage.setItem('cl_sheets_url', d.sheets_url);
+      if (d.drive_url)  localStorage.setItem('cl_drive_url',  d.drive_url);
     }
-  } catch(e) { console.warn('Could not load keys from worker'); }
-  // Fallback local (encoded)
+  } catch(e) { console.warn('Could not load keys from Railway savvy-config'); }
+  // Fallback hardcoded (always applies if Railway didn't provide)
   const _k = [
-    ['DEFAULT_PHOTOROOM_KEY', atob('c2tfcHJfZGVmYXVsdF9iNmRhM2NlNDAzYzM0NDFhZDE2MWRmNzYxODE5MTU3ZDEyODY2ZWVm')],
-    ['DEFAULT_RBG_KEY',       atob('RWFpSkZDRGNoSzJMb0twMlU3blNadVpD')],
-    ['DEFAULT_IMGBB_KEY',     atob('MWU4ZWNlYTJmYzJlYTkxOGNhY2E3NDM2OTkyOGVmNjM=')],
-    ['DEFAULT_CLAUDE_KEY',    ''], // User enters key manually in Settings
+    ['DEFAULT_IMGBB_KEY', atob('MWU4ZWNlYTJmYzJlYTkxOGNhY2E3NDM2OTkyOGVmNjM=')],
   ];
   _k.forEach(([k, v]) => { if (!window[k]) window[k] = v; });
+  _keysLoaded = true;
 })();
 // ── Login System ──────────────────────────────────────────────
 const SAVVY_USERS = {
