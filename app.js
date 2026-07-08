@@ -17,7 +17,7 @@ let _keysLoaded = false;
       if (d.imgbb)      DEFAULT_IMGBB_KEY  = d.imgbb;
       if (d.claude)     DEFAULT_CLAUDE_KEY = d.claude;
       if (d.sheets_url) localStorage.setItem('cl_sheets_url', d.sheets_url);
-      if (d.drive_url)  localStorage.setItem('cl_drive_url',  d.drive_url);
+      // drive_url: NO sobrescribir — usamos URL fija hardcodeada
     }
   } catch(e) { console.warn('Could not load keys from Railway savvy-config'); }
   // Fallback hardcoded (always applies if Railway didn't provide)
@@ -25,6 +25,8 @@ let _keysLoaded = false;
     ['DEFAULT_IMGBB_KEY', atob('MWU4ZWNlYTJmYzJlYTkxOGNhY2E3NDM2OTkyOGVmNjM=')],
   ];
   _k.forEach(([k, v]) => { if (!window[k]) window[k] = v; });
+  // Drive URL fija — siempre la correcta
+  localStorage.setItem('cl_drive_url', 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec');
   _keysLoaded = true;
 })();
 // ── Login System ──────────────────────────────────────────────
