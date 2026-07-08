@@ -530,6 +530,8 @@
   </div>
 </div>
 
+<div class="scr" id="scr-idle">
+  <div class="hero"><h2>Scan a Product</h2><p>Smart resale on eBay</p></div>
   <button class="cam-b" id="camBtn">
     <div class="cam-ic">📷</div>
     <div class="cam-lb">SCAN BARCODE</div>
@@ -542,15 +544,60 @@
   </div>
 </div>
 
+<div class="scr" id="scr-cam">
+  <div id="qr-video" style="width:100%;border-radius:12px;overflow:hidden"></div>
   <button class="cam-st" id="camStop">✕ CANCEL</button>
 </div>
 
+<div class="scr" id="scr-load">
+  <div class="lw">
+    <div class="sp"></div>
     <div id="lp" style="font-size:18px;font-weight:700;margin-bottom:8px">Scanning...</div>
     <div id="ls" style="color:var(--mu);font-size:13px">Querying eBay Catalog...</div>
     <div style="margin-top:24px;font-size:12px;color:var(--bd)">Usually takes 5-10 seconds</div>
   </div>
 </div>
 
+<div class="scr" id="scr-res">
+  <!-- ── SCANNER INTEGRADO (idéntico a Clothing & Shoes) ───── -->
+  <div id="ps-scanner-block" style="margin-bottom:12px">
+    <div style="background:var(--sf);border:1.5px solid var(--ac);border-radius:14px;padding:14px 14px 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--ac);letter-spacing:.08em;margin-bottom:8px">📷 SCAN BARCODE — AUTO-FILL FROM eBay</div>
+
+      <div id="ps-barcode-result" style="display:none;margin-bottom:8px;background:var(--sf2);border-radius:10px;padding:10px;font-size:13px"></div>
+
+      <button id="camBtn"
+        ontouchend="event.preventDefault();startCam();"
+        onclick="startCam();"
+        style="width:100%;background:linear-gradient(135deg,#FF6B35,#E71D36);border:none;border-radius:10px;padding:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">
+        📷 Scan Barcode
+      </button>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="upcIn" type="text" inputmode="numeric" placeholder="Or type UPC manually..."
+          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;color:var(--tx);font-size:15px;outline:none"
+          onkeydown="if(event.key==='Enter'){var v=this.value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);}">
+        <button
+          ontouchend="event.preventDefault();(function(){var v=document.getElementById('upcIn').value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);})();"
+          onclick="(function(){var v=document.getElementById('upcIn').value.trim().replace(/\D/g,'');if(v.length>=8)pgLookupUPC(v);})();"
+          style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;color:var(--tx);font-size:20px;cursor:pointer;flex-shrink:0">🔍</button>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="ps-ebay-url" type="text" placeholder="OR paste eBay listing URL..."
+          style="flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;color:var(--tx);font-size:13px;outline:none">
+        <button
+          ontouchend="event.preventDefault();clLookupEbayURL(document.getElementById('ps-ebay-url').value);"
+          onclick="clLookupEbayURL(document.getElementById('ps-ebay-url').value);"
+          style="padding:11px 14px;background:linear-gradient(135deg,#0064d2,#004b9f);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">eBay 🛒</button>
+      </div>
+    </div>
+  </div>
+  <!-- ── RESULTADO DEL PRODUCTO ─────────────────────────────── -->
+  <div id="resBody"><div style="margin-top:24px;text-align:center;color:var(--mu);font-size:13px;line-height:2">📷 Scan a barcode<br>⌨️ Type UPC manually<br>🔗 Paste an eBay URL</div></div>
+</div>
+
+<button class="fab" id="fab">📋 CSV <div class="fbc" id="fabN">0</div></button>
 
 
 <!-- CLOTHING SCREENS -->
@@ -674,7 +721,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20260708-04"></script>
+<script src="app.js?v=20260708-05"></script>
 
 <!-- LOCATION SCANNER OVERLAY -->
 <div class="loc-overlay" id="loc-overlay">
