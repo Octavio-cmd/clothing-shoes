@@ -721,7 +721,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20260708-05"></script>
+<script src="app.js?v=20260708-06"></script>
 
 <!-- LOCATION SCANNER OVERLAY -->
 <div class="loc-overlay" id="loc-overlay">
@@ -1310,6 +1310,13 @@ if (clUpcInput) {
 console.log('✅ Algopix integration loaded');
 
 console.log('✅ Pack Generator v4 loaded - Show image before confirming');
+</script>
+<script>
+// Auto-render clothing form on startup
+window.addEventListener('load', function() {
+  if (typeof clRenderSKU === 'function') clRenderSKU();
+  if (typeof clUpdateClFAB === 'function') clUpdateClFAB();
+});
 </script>
 </body>
 </html>
