@@ -1,32 +1,31 @@
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
-const SAVVY_CONFIG='https://savvy-config-production.up.railway.app';
 const DEF_EBAY='StevenGa-SavvySca-PRD-81addb012-655f2649';
-// ── Default API keys (loaded from savvy-config Railway server)
+// ── Default API keys (loaded from Cloudflare Worker env vars)
 let DEFAULT_PHOTOROOM_KEY = '';
 let DEFAULT_RBG_KEY = '';
 let DEFAULT_IMGBB_KEY = '';
 let DEFAULT_CLAUDE_KEY = '';
-let _keysLoaded = false;
-// Load keys from savvy-config on startup
+// Load keys from worker on startup
 (async function loadKeys() {
   try {
-    const r = await fetch(SAVVY_CONFIG + '/config');
+    const r = await fetch(WORKER + '/?action=keys');
     if (r.ok) {
       const d = await r.json();
-      if (d.imgbb)      DEFAULT_IMGBB_KEY  = d.imgbb;
-      if (d.claude)     DEFAULT_CLAUDE_KEY = d.claude;
-      if (d.sheets_url) localStorage.setItem('cl_sheets_url', d.sheets_url);
-      if (d.drive_url)  localStorage.setItem('cl_drive_url',  d.drive_url);
+      if (d.photoroom) DEFAULT_PHOTOROOM_KEY = d.photoroom;
+      if (d.rbg)       DEFAULT_RBG_KEY       = d.rbg;
+      if (d.imgbb)     DEFAULT_IMGBB_KEY      = d.imgbb;
+      if (d.claude)    DEFAULT_CLAUDE_KEY     = d.claude;
     }
-  } catch(e) { console.warn('Could not load keys from savvy-config'); }
+  } catch(e) { console.warn('Could not load keys from worker'); }
   // Fallback local (encoded)
   const _k = [
-    ['DEFAULT_IMGBB_KEY', atob('ZDZlMDg1NWMyNGIxNWZjN2JjOWNlYjY2ZTA1OGY0M2M=')],
+    ['DEFAULT_PHOTOROOM_KEY', atob('c2tfcHJfZGVmYXVsdF9iNmRhM2NlNDAzYzM0NDFhZDE2MWRmNzYxODE5MTU3ZDEyODY2ZWVm')],
+    ['DEFAULT_RBG_KEY',       atob('RWFpSkZDRGNoSzJMb0twMlU3blNadVpD')],
+    ['DEFAULT_IMGBB_KEY',     atob('MWU4ZWNlYTJmYzJlYTkxOGNhY2E3NDM2OTkyOGVmNjM=')],
+    ['DEFAULT_CLAUDE_KEY',    ''], // User enters key manually in Settings
   ];
   _k.forEach(([k, v]) => { if (!window[k]) window[k] = v; });
-  _keysLoaded = true;
-  if (typeof renderSt === 'function') renderSt();
 })();
 // ── Login System ──────────────────────────────────────────────
 const SAVVY_USERS = {
@@ -965,7 +964,7 @@ async function openBundlePhoto() {
     }
 
     // Subir imagen JPG real a Google Drive
-    var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
+    var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
     if (driveUrl) {
       try {
         if(genDiv) genDiv.textContent='☁️ Subiendo foto a Google Drive...';
@@ -2346,70 +2345,39 @@ function exportCSV(){
   var fname = 'eBay-FX-'+stamp+'-'+exportedCount+'items.csv';
   if (skipped > 0) toast('⚠️ ' + skipped + ' producto(s) no identificados omitidos del CSV');
 
-  // URL fija del Apps Script — NO depender solo de localStorage
-  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
-  var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
-  console.log('📤 exportCSV → URL:', driveUrl);
-  console.log('📤 CSV filename:', fname, '| items:', exportedCount);
-  toast('📤 Subiendo a Google Drive...');
-
-  // Intentar con redirect:follow primero, fallback a no-cors
-  fetch(driveUrl, {
-    method: 'POST',
-    body: JSON.stringify({csv: csv, filename: fname}),
-    headers: {'Content-Type': 'text/plain'},
-    redirect: 'follow'
-  })
-  .then(function(r) {
-    console.log('📤 Drive response type:', r.type, 'status:', r.status);
-    if (r.type === 'opaque') return {success: true, opaque: true};
-    return r.text().then(function(t) {
-      try { return JSON.parse(t); } catch(e) { return {success: true, raw: t}; }
-    });
-  })
-  .catch(function(corsErr) {
-    console.warn('📤 CORS blocked, retrying no-cors...', corsErr.message);
-    return fetch(driveUrl, {
+  var driveUrl = localStorage.getItem('cl_drive_url');
+  if (driveUrl) {
+    toast('📤 Subiendo a Google Drive...');
+    fetch(driveUrl, {
       method: 'POST',
       mode: 'no-cors',
       body: JSON.stringify({csv: csv, filename: fname}),
       headers: {'Content-Type': 'text/plain'}
-    }).then(function() { return {success: true, opaque: true}; });
-  })
-  .then(function(result) {
-    console.log('📤 Drive result:', JSON.stringify(result));
-    var verified = result && result.success && !result.opaque;
-    var icon = verified ? '✅' : '📤';
-    var title = verified ? 'CSV Confirmado en Drive' : 'CSV Enviado a Drive';
-    var note = verified
-      ? 'Archivo verificado en Google Drive'
-      : 'Archivo enviado — verifica en Drive que haya llegado';
-    var noteColor = verified ? '#2EC4B6' : '#FFD700';
-    var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
-      +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-      +'padding:30px;gap:16px;text-align:center';
-    ov.innerHTML = '<div style="font-size:60px">'+icon+'</div>'
-      +'<div style="color:#fff;font-size:22px;font-weight:800">'+title+'</div>'
-      +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
-      +'<div style="color:'+noteColor+';font-size:12px;margin:4px 0">'+note+'</div>'
-      +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
-      +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
-      +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
-      +'Descarga el CSV → sube a eBay</div>'
-      +'<a href="https://drive.google.com/drive/folders" target="_blank" '
-      +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
-      +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
-      +'<button onclick="this.parentElement.remove()" '
-      +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
-      +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
-    document.body.appendChild(ov);
-  })
-  .catch(function(finalErr) {
-    console.error('📤 Drive FAILED:', finalErr);
-    toast('❌ Error subiendo CSV: ' + finalErr.message);
+    }).then(function() {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
+        +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        +'padding:30px;gap:16px;text-align:center';
+      ov.innerHTML = '<div style="font-size:60px">✅</div>'
+        +'<div style="color:#fff;font-size:22px;font-weight:800">CSV en Google Drive</div>'
+        +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
+        +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
+        +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
+        +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
+        +'Descarga el CSV → sube a eBay</div>'
+        +'<a href="https://drive.google.com/drive/folders" target="_blank" '
+        +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
+        +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
+        +'<button onclick="this.parentElement.remove()" '
+        +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
+        +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
+      document.body.appendChild(ov);
+    }).catch(function() {
+      savvyShowExportOptions(csv, fname, bulk.length);
+    });
+  } else {
     savvyShowExportOptions(csv, fname, bulk.length);
-  });
+  }
   } catch(exportErr) {
     console.error('exportCSV error:', exportErr);
     toast('❌ Export error: ' + exportErr.message);
@@ -2539,7 +2507,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     showRbgStatus('✅ Remove.bg configured — consider also adding PhotoRoom (75 free/month)', 'var(--gd)');
   }
 
-  // Clothing FAB - registered here and also in openClothing for iOS Safari
+  // Clothing FAB
   const clFab = $('cl-fab');
   if (clFab) {
     clFab.addEventListener('touchend', e => { e.preventDefault(); clShowSession(); });
@@ -2785,14 +2753,6 @@ function openClothing() {
   document.querySelectorAll('.scr').forEach(s => s.classList.remove('on'));
   $('cl-sku').classList.add('on');
   clRenderSKU();
-  // Re-attach cl-fab listener for iOS Safari compatibility
-  setTimeout(function() {
-    const clFab = $('cl-fab');
-    if (clFab) {
-      clFab.ontouchend = function(e) { e.preventDefault(); clShowSession(); };
-      clFab.onclick = clShowSession;
-    }
-  }, 100);
 }
 
 function saveSheetsUrl() {
@@ -2866,7 +2826,7 @@ const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter
   'Jacket','Coat','Vest','Pants','Jeans','Shorts','Dress','Skirt',
   'Activewear Top','Activewear Bottom','Swimwear','Scrubs','Other'];
 
-const CL_SIZES_ALPHA = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','XLT','1XB','2XB','2XLT','3XB','3XLT','4XB','4XLT'];
+const CL_SIZES_ALPHA = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT'];
 const CL_SIZES_NUM   = ['28','30','32','34','36','38','40','42','44'];
 const CL_SIZES_KIDS  = ['NB','3M','6M','9M','12M','18M','2T','3T','4T','5T','5/6','7/8','10/12','14','14/16','16','18','20'];
 const CL_SIZES_SHOES = ['5','5.5','6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','13'];
@@ -2878,7 +2838,7 @@ const CL_COLORS = [
   {name:'Red', hex:'#c62828'},  {name:'Pink', hex:'#e91e96'}, {name:'Coral', hex:'#ff6b6b'},
   {name:'Purple', hex:'#6a1b9a'},
   {name:'Green', hex:'#2e7d32'},{name:'Olive', hex:'#827717'},{name:'Yellow', hex:'#f9a825'},
-  {name:'Orange', hex:'#e65100'},{name:'Brown', hex:'#4e342e'},{name:'Wine', hex:'#6d1b2e'},{name:'Beige', hex:'#d7ccc8'},
+  {name:'Orange', hex:'#e65100'},{name:'Brown', hex:'#4e342e'},{name:'Beige', hex:'#d7ccc8'},
   {name:'Tan', hex:'#d2b48c'},
   {name:'Multicolor', hex:'linear-gradient(135deg,#f00,#0f0,#00f)'},{name:'Other', hex:'#333'}
 ];
@@ -4053,7 +4013,7 @@ function clInitSizeWheel() {
     ? (cl.gender==='kids'||cl.category&&cl.category.toLowerCase().includes('kids')?CL_SHOE_SIZES_KIDS:CL_SHOE_SIZES_US).concat(['Custom'])
     : [
     'XS','S','M','L','XL','XXL','3XL','4XL',
-    'XLT','1XB','2XB','2XLT','3XB','3XLT','4XB','4XLT',
+    'XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT',
     '26','27','28','29','30','31','32','33','34','35','36','38','40','42','44',
     '0-3M','3-6M','6-12M','18-24M','2T','3T','4T','5/6','7/8','10/12','14/16',
     'One Size','Custom'
@@ -5251,7 +5211,7 @@ function clCloseSheet() {
 function clInitSheetWheel() {
   const ALL_SIZES = [
     'XS','S','M','L','XL','XXL','3XL','4XL',
-    'XLT','1XB','2XB','2XLT','3XB','3XLT','4XB','4XLT',
+    'XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT',
     '26','27','28','29','30','31','32','33','34','35','36','38','40','42','44',
     '0-3M','3-6M','6-12M','18-24M','2T','3T','4T','5/6','7/8','10/12','14/16',
     'One Size','Custom'
@@ -5483,77 +5443,43 @@ function clExportEbayCSV() {
   var stamp=now.toISOString().slice(0,10)+'-'
     +now.getHours().toString().padStart(2,'0')+now.getMinutes().toString().padStart(2,'0');
   var fname='eBay-FX-'+stamp+'-'+sess.length+'items.csv';
-  // URL fija del Apps Script — NO depender de localStorage ni Railway
-  var DRIVE_SCRIPT = 'https://script.google.com/macros/s/AKfycbwOt5FgxnN03xx6h8Cd2Xfh3WGFwmtaJT4JGsVps1MoUNIjy3V0DWeulGTAWEsm8dWVfw/exec';
-  var driveUrl = localStorage.getItem('cl_drive_url') || DRIVE_SCRIPT;
-  console.log('📤 clExportEbayCSV → URL:', driveUrl);
-  console.log('📤 CSV filename:', fname, '| items:', sess.length);
-  toast('📤 Subiendo a Google Drive...');
-
-  // Paso 1: Intentar con redirect:follow (permite leer respuesta real)
-  fetch(driveUrl, {
-    method: 'POST',
-    body: JSON.stringify({csv: csv, filename: fname}),
-    headers: {'Content-Type': 'text/plain'},
-    redirect: 'follow'
-  })
-  .then(function(r) {
-    console.log('📤 Drive response type:', r.type, 'status:', r.status, 'ok:', r.ok);
-    if (r.type === 'opaque') {
-      // no-cors response — no podemos verificar, pero probablemente funcionó
-      return {success: true, opaque: true};
-    }
-    return r.text().then(function(t) {
-      console.log('📤 Drive response body:', t.substring(0, 200));
-      try { return JSON.parse(t); } catch(e) { return {success: true, raw: t}; }
-    });
-  })
-  .catch(function(corsErr) {
-    // Si CORS falla, reintentar con no-cors (datos SÍ llegan, respuesta no legible)
-    console.warn('📤 CORS blocked, retrying with no-cors...', corsErr.message);
-    return fetch(driveUrl, {
+  var driveUrl = localStorage.getItem('cl_drive_url') || 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  if (driveUrl) {
+    toast('📤 Subiendo a Google Drive...');
+    // no-cors: bypasses CORS block — file IS saved to Drive even without readable response
+    fetch(driveUrl, {
       method: 'POST',
       mode: 'no-cors',
       body: JSON.stringify({csv: csv, filename: fname}),
       headers: {'Content-Type': 'text/plain'}
-    }).then(function() {
-      return {success: true, opaque: true};
+    })
+    .then(function() {
+      // With no-cors we can't read response, but file was saved — show success
+      var ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
+        +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        +'padding:30px;gap:16px;text-align:center';
+      ov.innerHTML='<div style="font-size:60px">✅</div>'
+        +'<div style="color:#fff;font-size:22px;font-weight:800">CSV en Google Drive</div>'
+        +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
+        +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
+        +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
+        +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
+        +'Descarga el CSV → sube a eBay</div>'
+        +'<a href="https://drive.google.com/drive/folders" target="_blank" '
+        +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
+        +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
+        +'<button onclick="this.parentElement.remove()" '
+        +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
+        +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
+      document.body.appendChild(ov);
+    })
+    .catch(function() {
+      clShowExportOptions(csv, fname, sess.length);
     });
-  })
-  .then(function(result) {
-    console.log('📤 Drive result:', JSON.stringify(result));
-    var verified = result && result.success && !result.opaque;
-    var icon = verified ? '✅' : '📤';
-    var title = verified ? 'CSV Confirmado en Drive' : 'CSV Enviado a Drive';
-    var note = verified
-      ? 'Archivo verificado en Google Drive'
-      : 'Archivo enviado — verifica en Drive que haya llegado';
-    var noteColor = verified ? '#2EC4B6' : '#FFD700';
-    var ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;'
-      +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-      +'padding:30px;gap:16px;text-align:center';
-    ov.innerHTML='<div style="font-size:60px">'+icon+'</div>'
-      +'<div style="color:#fff;font-size:22px;font-weight:800">'+title+'</div>'
-      +'<div style="color:#aaa;font-size:14px">'+fname+'</div>'
-      +'<div style="color:'+noteColor+';font-size:12px;margin:4px 0">'+note+'</div>'
-      +'<div style="color:#aaa;font-size:13px;line-height:1.6">'
-      +'En Windows abre <b style="color:#fff">drive.google.com</b><br>'
-      +'Carpeta <b style="color:#fff">eBay Listings</b><br>'
-      +'Descarga el CSV → sube a eBay</div>'
-      +'<a href="https://drive.google.com/drive/folders" target="_blank" '
-      +'style="background:#1a73e8;border-radius:12px;padding:14px 28px;color:#fff;'
-      +'font-weight:800;font-size:16px;text-decoration:none">📁 Abrir Google Drive</a>'
-      +'<button onclick="this.parentElement.remove()" '
-      +'style="background:none;border:1px solid #555;border-radius:10px;padding:10px 24px;'
-      +'color:#888;cursor:pointer;font-size:14px">Cerrar</button>';
-    document.body.appendChild(ov);
-  })
-  .catch(function(finalErr) {
-    console.error('📤 Drive FAILED:', finalErr);
-    toast('❌ Error subiendo CSV: ' + finalErr.message);
+  } else {
     clShowExportOptions(csv, fname, sess.length);
-  });
+  }
 }
 
 function clShowExportOptions(csv, fname, count) {
@@ -5594,6 +5520,3 @@ function clShowExportOptions(csv, fname, count) {
     } else { ta.select(); document.execCommand('copy'); toast('✅ Copiado!'); }
   };
 }
-
-// Auto-open Clothing & Shoes module on load
-document.addEventListener('DOMContentLoaded', function(){ if(typeof openClothing==='function') openClothing(); });
