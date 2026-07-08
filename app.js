@@ -4469,7 +4469,7 @@ function clTakePhoto(slotId) {
       
       const imgbbKey = localStorage.getItem('cl_imgbb_key') || DEFAULT_IMGBB_KEY;
       if (imgbbKey) {
-        const imgUrl = await clUploadPhotoToImgBB(dataUrl, imgbbKey);
+        const imgUrl = await clUploadPhotoToImgBB(dataUrl, imgbbKey, slotId);
         if (imgUrl) {
           console.log('✅ ImgBB URL saved:', imgUrl);
           cl.photos[slotId] = imgUrl;
@@ -4913,14 +4913,14 @@ async function clTestImgbbKey() {
   }
 }
 
-async function clUploadPhotoToImgBB(dataUrl, key) {
+async function clUploadPhotoToImgBB(dataUrl, key, slotName) {
   try {
     const b64 = dataUrl ? dataUrl.split(',')[1] : null;
     if (!b64) { console.warn('ImgBB: no image data'); return null; }
     const fd  = new FormData();
     fd.append('key', key);
     fd.append('image', b64);
-    fd.append('name', 'product.jpg');
+    fd.append('name', (slotName || 'photo') + '-' + Date.now() + '.jpg');
     const res = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: fd });
     const d   = await res.json();
     console.log('ImgBB response:', JSON.stringify(d).substring(0,200));
@@ -4959,7 +4959,7 @@ async function clUploadAllPhotos() {
         console.log('✅ Reusing existing ImgBB URL for ' + s + ':', url.substring(0,60));
       } else {
         // Es base64 (fallback cuando ImgBB falló al capturar) — subir ahora
-        url = await clUploadPhotoToImgBB(photoVal, key);
+        url = await clUploadPhotoToImgBB(photoVal, key, s);
         console.log('📤 Uploaded base64 photo for ' + s + ':', url ? url.substring(0,60) : 'FAILED');
       }
       if (url) urls.push(url);
