@@ -2790,7 +2790,7 @@ function screen(n) {
 let cl = {
   sku:'', type:'clothing', gender:'unisex', brand:'', brandCustom:'', category:'', size:'L',
   color:'', colorCustom:'', condition:'', defects:[], notes:'',
-  photos:{ front:null, back:null, tag:null, detail:null },
+  photos:{ front:null, back:null, tag:null, detail:null, meas1:null, meas2:null },
   clothingPrices: { minPrice: null, avgPrice: null, suggestedPrice: null, found: false },
   pricesLoading: false,
   step: 1, submitting: false
@@ -2873,10 +2873,12 @@ const CL_DEFECTS = ['Missing Button','Small Stain','Large Stain','Tear','Hole',
   'Fading','Pilling','Broken Zipper','Missing Tag','Odor','Hem Damage','Other'];
 
 const PHOTO_SLOTS = [
-  {id:'front',  label:'Front', icon:'👕', hint:'Lay flat, full garment'},
-  {id:'back',   label:'Back',  icon:'🔄', hint:'Full back view'},
-  {id:'tag',    label:'Tag',   icon:'🏷️', hint:'Brand + size tag'},
-  {id:'detail', label:'Detail',icon:'🔍', hint:'Defects or key details'},
+  {id:'front',  label:'Front',   icon:'👕', hint:'Lay flat, full garment',      required:true},
+  {id:'back',   label:'Back',    icon:'🔄', hint:'Full back view',               required:true},
+  {id:'tag',    label:'Tag',     icon:'🏷️', hint:'Brand + size tag',            required:true},
+  {id:'detail', label:'Detail',  icon:'🔍', hint:'Defects or key details',       required:true},
+  {id:'meas1',  label:'Measure 1', icon:'📏', hint:'Measurement with ruler',    required:false},
+  {id:'meas2',  label:'Measure 2', icon:'📐', hint:'Second measurement',        required:false},
 ];
 
 // ── SKU Generator ───────────────────────────────────────────
@@ -3071,7 +3073,7 @@ function clUpdateProgress(step) {
 function clRenderSKU() {
   cl = { sku:'', brand:'', brandCustom:'', category:'', size:'L',
     color:'', colorCustom:'', condition:'', defects:[], notes:'',
-    photos:{ front:null, back:null, tag:null, detail:null }, location:'', step:1 };
+    photos:{ front:null, back:null, tag:null, detail:null, meas1:null, meas2:null }, location:'', step:1 };
   // Update session badge
   clUpdateSessionBadge();
 
@@ -4522,7 +4524,7 @@ function clCompressImage(file, maxW=900, quality=0.75) {
 }
 
 function clStep4Next() {
-  const missing = PHOTO_SLOTS.filter(s => !cl.photos[s.id]).map(s=>s.label);
+  const missing = PHOTO_SLOTS.filter(s => s.required && !cl.photos[s.id]).map(s=>s.label);
   if (missing.length) { toast('⚠️ Missing: '+missing.join(', ')); return; }
   clRenderReview();
   clGo(5);
@@ -4958,7 +4960,7 @@ async function clUploadAllPhotos() {
   const key = (localStorage.getItem('cl_imgbb_key') || DEFAULT_IMGBB_KEY);
   if (!key) return null;
   const urls = [];
-  const slots = ['front','back','tag','detail'];
+  const slots = ['front','back','tag','detail','meas1','meas2'];
   for (const s of slots) {
     if (cl.photos[s]) {
       var photoVal = cl.photos[s];
