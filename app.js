@@ -5095,6 +5095,8 @@ function clUpdateSessionBadge() {
   const n = clGetSessionCount();
   const el = document.getElementById('cl-session-badge');
   if (el) el.textContent = n > 0 ? n + ' items ready to export' : '';
+  // Also update the FAB badge
+  clUpdateClFAB();
 }
 
 // Exportar CSV — función SÍNCRONA para que navigator.share funcione en iOS Safari
@@ -5369,8 +5371,11 @@ function clUpdateClFAB() {
   const fab = $('cl-fab');
   const cnt = $('cl-fab-n');
   if (!fab || !cnt) return;
-  cnt.textContent = clBulk.length;
-  fab.classList.toggle('on', clBulk.length > 0);
+  // Use cl_ebay_session as source of truth (survives page refresh)
+  const sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
+  const n = sess.length;
+  cnt.textContent = n;
+  fab.classList.toggle('on', n > 0);
 }
 
 
