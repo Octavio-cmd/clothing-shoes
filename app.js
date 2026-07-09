@@ -2515,6 +2515,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     clFab.addEventListener('touchend', e => { e.preventDefault(); clShowSession(); });
     clFab.addEventListener('click', clShowSession);
   }
+
+  // Restore session badge on page reload
+  setTimeout(function() {
+    if (typeof clUpdateSessionBadge === 'function') clUpdateSessionBadge();
+    if (typeof clUpdateClFAB === 'function') clUpdateClFAB();
+    // Update cl-fab badge number
+    const sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
+    const fabN = document.getElementById('cl-fab-n');
+    if (fabN && sess.length > 0) fabN.textContent = sess.length;
+  }, 500);
 });
 
 function clShowSession() {
