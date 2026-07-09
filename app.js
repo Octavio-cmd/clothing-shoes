@@ -5086,9 +5086,18 @@ function clGetSessionCount() {
 }
 
 function clClearSession() {
+  // Borrar COMPLETAMENTE todo
   localStorage.removeItem('cl_ebay_session');
-  toast('🗑 Clothing session cleared');
-  clUpdateSessionBadge();
+  clBulk = [];
+  // Actualizar badge a 0
+  const fabN = document.getElementById('cl-fab-n');
+  if (fabN) fabN.textContent = '0';
+  const fab = document.getElementById('cl-fab');
+  if (fab) fab.classList.remove('on');
+  // Cerrar cualquier modal abierto
+  document.querySelectorAll('div[style*="position:fixed"]').forEach(el => el.remove());
+  toast('🗑 Sesión borrada — lista para nueva sesión');
+  clUpdateClFAB();
 }
 
 function clUpdateSessionBadge() {
