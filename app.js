@@ -2831,7 +2831,7 @@ const CL_SHOE_DEFECTS = [
 
 const CL_BRANDS = ['Nike','Adidas','Under Armour','Champion','Puma','Reebok','New Balance',
   'Levi\'s','Wrangler','Lee','Gap','Old Navy','H&M','Zara','Forever 21','American Eagle',
-  'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Polo Ralph Lauren','Nautica',
+  'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Polo Ralph Lauren','Lauren Ralph Lauren','Nautica',
   'Columbia','North Face','Carhartt','Patagonia','Carter\'s','OshKosh','Other'];
 
 const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter Zip','Sweatshirt','Sweater',
