@@ -2838,7 +2838,7 @@ const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter
   'Jacket','Coat','Vest','Pants','Jeans','Shorts','Dress','Skirt',
   'Activewear Top','Activewear Bottom','Swimwear','Scrubs','Other'];
 
-const CL_SIZES_ALPHA = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT'];
+const CL_SIZES_ALPHA = ['XXS','XS','S','M','L','XL','XXL','1X','1XB','3XL','4XL','XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT'];
 const CL_SIZES_NUM   = ['28','30','32','34','36','38','40','42','44'];
 const CL_SIZES_KIDS  = ['NB','3M','6M','9M','12M','18M','2T','3T','4T','5T','5/6','7/8','10/12','14','14/16','16','18','20'];
 const CL_SIZES_SHOES = ['5','5.5','6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','13'];
@@ -2851,7 +2851,7 @@ const CL_COLORS = [
   {name:'Purple', hex:'#6a1b9a'},
   {name:'Green', hex:'#2e7d32'},{name:'Olive', hex:'#827717'},{name:'Yellow', hex:'#f9a825'},
   {name:'Orange', hex:'#e65100'},{name:'Brown', hex:'#4e342e'},{name:'Beige', hex:'#d7ccc8'},
-  {name:'Tan', hex:'#d2b48c'},
+  {name:'Tan', hex:'#d2b48c'},   {name:'Khaki', hex:'#b5a642'},
   {name:'Multicolor', hex:'linear-gradient(135deg,#f00,#0f0,#00f)'},{name:'Other', hex:'#333'}
 ];
 
@@ -4026,7 +4026,7 @@ function clInitSizeWheel() {
   const ALL_SIZES = cl.type==='shoes'
     ? (cl.gender==='kids'||cl.category&&cl.category.toLowerCase().includes('kids')?CL_SHOE_SIZES_KIDS:CL_SHOE_SIZES_US).concat(['Custom'])
     : [
-    'XS','S','M','L','XL','XXL','3XL','4XL',
+    'XS','S','M','L','XL','XXL','1X','1XB','3XL','4XL',
     'XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT',
     '26','27','28','29','30','31','32','33','34','35','36','38','40','42','44',
     '0-3M','3-6M','6-12M','18-24M','2T','3T','4T','5/6','7/8','10/12','14/16',
@@ -5235,7 +5235,7 @@ function clCloseSheet() {
 // Size wheel inside the sheet (uses different list ID)
 function clInitSheetWheel() {
   const ALL_SIZES = [
-    'XS','S','M','L','XL','XXL','3XL','4XL',
+    'XS','S','M','L','XL','XXL','1X','1XB','3XL','4XL',
     'XLT','2XB','2XLT','3XB','3XLT','4XB','4XLT',
     '26','27','28','29','30','31','32','33','34','35','36','38','40','42','44',
     '0-3M','3-6M','6-12M','18-24M','2T','3T','4T','5/6','7/8','10/12','14/16',
