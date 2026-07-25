@@ -7,7 +7,7 @@ let DEFAULT_PHOTOROOM_KEY = '';
 let DEFAULT_RBG_KEY = '';
 // KEY NUEVA fija — igual que en Product Scanner.
 // ⛔ NO se sobreescribe desde Railway (línea comentada abajo).
-let DEFAULT_IMGBB_KEY = atob('YzhhNDhjZTRlNWU1MzZmMGE4MzQ1MTYxOTk3ZGNmZTM=');
+let DEFAULT_IMGBB_KEY = atob('MjljYjkyZDg5YTViZDM2Y2Y5YjkxOTc2ZDVhNDYzOWM=');
 let DEFAULT_CLAUDE_KEY = '';
 let _keysLoaded = false;
 // Load keys from Railway on startup
