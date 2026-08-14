@@ -1,4 +1,27 @@
 
+// ── POLÍTICAS DE NEGOCIO DE eBAY — FUENTE ÚNICA DE VERDAD ────────────────────
+// Los nombres tienen que coincidir EXACTO con los de la tienda en eBay
+// (Seller Hub → Account → Business policies). Si no coinciden, eBay rechaza
+// el listado completo con el error 21917329 "invalid return policy".
+//
+// ⚠️ 14 ago 2026: estos tres valores estaban duplicados y hardcodeados en DOS
+// lugares del archivo (exportCSV y clExportEbayCSV), y los dos traían
+// '30 Day return Copy' — una política que ya no existe desde que se
+// consolidó la tienda a tres políticas definitivas. Por eso falló
+// CLO-LAU-XS-62033. Ahora están AQUÍ y nada más aquí: si cambias una
+// política en eBay, se toca una sola línea.
+const CL_SHIP_POLICY = 'Flat:Standard Shipp(Free),Same business day';
+const CL_RET_POLICY  = '30 Day return';
+const CL_PAY_POLICY  = 'eBay Payments';
+
+// ── MARCA DE VERSIÓN ────────────────────────────────────────────────────────
+// index.html carga app.js como <script src="app.js"> sin parámetro de versión,
+// así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
+// Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
+// dar por buena cualquier prueba.
+window.CL_BUILD = '2026-08-14a';
+try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
+
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
 const SAVVY_CONFIG='https://savvy-config-production.up.railway.app';
 const DEF_EBAY='StevenGa-SavvySca-PRD-81addb012-655f2649';
@@ -2131,9 +2154,9 @@ function exportCSV(){
       ? '"'+v.replace(/"/g,'""')+'"' : v;
   }
 
-  var SHIP = 'Flat:Standard Shipp(Free),Same business day';
-  var RET  = '30 Day return Copy';
-  var PAY  = 'eBay Payments';
+  var SHIP = CL_SHIP_POLICY;
+  var RET  = CL_RET_POLICY;
+  var PAY  = CL_PAY_POLICY;
 
   var HDR = [
     '*Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8)',
@@ -2207,8 +2230,16 @@ function exportCSV(){
   // EPA Registration Number — solo para insect repellents
   function getEpaNumber(category, title) {
     const t = (title||'').toLowerCase();
+    // ⚠️ CORREGIDO (14 ago 2026): antes bastaba con que el título dijera
+    // "repellent" para ponerle un número de registro EPA. En ropa eso es un
+    // desastre: "Columbia Water Repellent Jacket" habría salido marcado como
+    // pesticida y eBay rechaza el listado por política (le pasó a un lip balm
+    // en Product Scanner por la misma clase de bug). Ahora se exige \b y
+    // contexto real de insecto.
     if(String(category)==='1232' || String(category)==='261844' ||
-       /insect|mosquito|bug spray|repellent|deet/.test(t)) {
+       /\b(insect|mosquito|deet)\b/.test(t) ||
+       /\bbug\s+(spray|repellent)\b/.test(t) ||
+       (/\brepellent\b/.test(t) && /\b(insect|mosquito|bug|fly|flies|gnat|tick|pest)\w*\b/.test(t))) {
       return '4822-547'; // OFF! generic EPA registration
     }
     return '';
@@ -4767,7 +4798,13 @@ function buildClothingTitle() {
   const color = cl.color && cl.color !== 'Unknown' ? cl.color + ' ' : '';
   const parts = [cl.brand, cl.category, color + 'Size ' + cl.size, gdr, cond].filter(Boolean);
   let t = parts.join(' ').replace(/\s+/g,' ').trim();
-  if (t.length < 75 && !t.includes('NWT')) t += ' NWT';
+  // ⚠️ BUG CORREGIDO (14 ago 2026): antes decía !t.includes('NWT'), pero
+  // "NWOT" NO contiene la cadena "NWT" (N-W-O-T ≠ N-W-T), así que a un
+  // artículo marcado NWOT se le pegaba " NWT" al final y el título quedaba
+  // "... Women's NWOT NWT" — sin etiquetas Y con etiquetas a la vez, y
+  // contradiciendo el ConditionID 1500. Le pasó a CLO-LAU-XS-62033.
+  // Ahora solo se agrega si la condición REALMENTE es NWT y no está ya puesto.
+  if (t.length < 75 && cl.condition === 'NWT' && !/\bNWT\b/.test(t)) t += ' NWT';
   return t.substring(0,80);
 }
 
@@ -5433,9 +5470,9 @@ function clExportEbayCSV() {
     return (v.indexOf(',')>=0||v.indexOf('"')>=0||v.indexOf('\n')>=0)
       ? '"'+v.replace(/"/g,'""')+'"' : v;
   }
-  var SHIP='Flat:Standard Shipp(Free),Same business day';
-  var RET='30 Day return Copy';
-  var PAY='eBay Payments';
+  var SHIP = CL_SHIP_POLICY;
+  var RET  = CL_RET_POLICY;
+  var PAY  = CL_PAY_POLICY;
   var HDR=['*Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8)',
     'CustomLabel','*Category','*Title','*ConditionID',
     '*C:Brand','*C:Size Type','*C:Size','*C:Department','*C:Color','*C:Style','C:Type',
