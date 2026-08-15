@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-15e';
+window.CL_BUILD = '2026-08-15g';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -4213,49 +4213,90 @@ function clSetInseam(b) {
   document.querySelectorAll('.cl-inseam-chip').forEach(el => el.classList.toggle('sel', el.dataset.v===b));
 }
 
-// ── PESO: sugerencias típicas por prenda ────────────────────────────────────
-// Son atajos para el almacén, NO valores automáticos: nada se llena solo.
-// El peso que va a la etiqueta de ShipStation debe ser el real, así que las
-// casillas lb/oz siempre mandan sobre el chip.
-function clWeightPresets() {
-  var c = String(cl.category || '');
-  if (['Shorts','T-Shirt','Tank Top','Sleeveless','Blouse','Skirt'].indexOf(c) !== -1)
-    return [{lb:0,oz:6,label:'6 oz'},{lb:0,oz:8,label:'8 oz'},{lb:0,oz:10,label:'10 oz'},{lb:0,oz:12,label:'12 oz'}];
-  if (['Jeans','Pants','Shirt','Dress'].indexOf(c) !== -1)
-    return [{lb:0,oz:12,label:'12 oz'},{lb:1,oz:0,label:'1 lb'},{lb:1,oz:4,label:'1 lb 4 oz'},{lb:1,oz:8,label:'1 lb 8 oz'}];
-  if (['Sweater','Sweatshirt','Hoodie','Quarter Zip','Shacket','Vest'].indexOf(c) !== -1)
-    return [{lb:1,oz:0,label:'1 lb'},{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:2,oz:8,label:'2 lb 8 oz'}];
-  if (['Jacket','Coat'].indexOf(c) !== -1)
-    return [{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:3,oz:0,label:'3 lb'},{lb:4,oz:0,label:'4 lb'}];
-  if (['Shoes','Sneakers','Boots'].indexOf(c) !== -1)
-    return [{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:2,oz:8,label:'2 lb 8 oz'},{lb:3,oz:0,label:'3 lb'}];
-  return [{lb:0,oz:8,label:'8 oz'},{lb:1,oz:0,label:'1 lb'},{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'}];
+// ── RODILLOS DE PESO (estilo iPhone) ────────────────────────────────────────
+// El CSS vive en index.html para el rodillo de talla, pero el de peso es más
+// bajo (132px = 3 renglones en vez de 5) para no comerse la pantalla de
+// review. Se inyecta una sola vez desde aquí para no tener que tocar
+// index.html y meter un segundo deploy.
+function clEnsureWeightWheelCSS() {
+  if (document.getElementById('clw-css')) return;
+  var st = document.createElement('style');
+  st.id = 'clw-css';
+  st.textContent =
+    '.clw-wrap{position:relative;height:132px;background:var(--sf);border-radius:12px;overflow:hidden;border:1px solid var(--bd)}' +
+    '.clw-list{height:132px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}' +
+    '.clw-list::-webkit-scrollbar{display:none}' +
+    '.clw-item{height:44px;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--mu);font-weight:400;cursor:pointer;user-select:none}' +
+    '.clw-item.sel{color:var(--ac);font-size:26px;font-weight:900}' +
+    '.clw-fade-top{position:absolute;top:0;left:0;right:0;height:44px;background:linear-gradient(to bottom,var(--sf) 20%,transparent);pointer-events:none;z-index:2}' +
+    '.clw-fade-bot{position:absolute;bottom:0;left:0;right:0;height:44px;background:linear-gradient(to top,var(--sf) 20%,transparent);pointer-events:none;z-index:2}' +
+    '.clw-indicator{position:absolute;top:50%;left:8px;right:8px;height:44px;transform:translateY(-50%);border-top:1.5px solid var(--ac);border-bottom:1.5px solid var(--ac);border-radius:8px;pointer-events:none;z-index:3;background:rgba(255,107,0,.04)}';
+  document.head.appendChild(st);
 }
 
-// Mismo patrón iOS que el inseam: addEventListener con touchend Y click.
-// El onclick inline en elementos generados dinámicamente no es confiable
-// en Safari de iPhone.
-function clInitWeightListeners() {
-  document.querySelectorAll('[data-action="weight"]').forEach(function(btn) {
-    function pick(e) {
-      e.preventDefault();
-      clSetWeight(this.dataset.lb, this.dataset.oz);
-    }
-    btn.addEventListener('touchend', pick, false);
-    btn.addEventListener('click', pick, false);
+// Rangos: hasta 20 lb cubre cualquier prenda o par de zapatos con caja.
+// Las onzas paran en 15 porque 16 ya es una libra — dejarlo abierto solo
+// invita a capturar "0 lb 20 oz".
+var CLW_LBS = (function(){ var a=[]; for (var i=0;i<=20;i++) a.push(i); return a; })();
+var CLW_OZS = (function(){ var a=[]; for (var i=0;i<=15;i++) a.push(i); return a; })();
+
+// Un solo constructor para los dos rodillos. ITEM_H y PAD replican el
+// rodillo de talla: 44px por renglón, y un espaciador arriba y abajo para
+// que el primer y el último valor puedan quedar centrados.
+function clBuildWheel(listId, values, getVal, setVal) {
+  var ITEM_H = 44, PAD = 1;
+  var list = document.getElementById(listId);
+  if (!list) return;
+
+  var cur = parseInt(getVal(), 10);
+  if (isNaN(cur) || values.indexOf(cur) === -1) cur = 0;
+  var curIdx = values.indexOf(cur);
+
+  var spacer = '<div style="height:44px;flex-shrink:0"></div>';
+  list.innerHTML =
+    Array(PAD).fill(spacer).join('') +
+    values.map(function(v, i){
+      return '<div class="clw-item' + (i === curIdx ? ' sel' : '') + '" data-idx="' + i + '">' + v + '</div>';
+    }).join('') +
+    Array(PAD).fill(spacer).join('');
+
+  list.scrollTop = curIdx * ITEM_H;
+
+  list.addEventListener('scroll', function() {
+    var idx = Math.round(list.scrollTop / ITEM_H);
+    idx = Math.max(0, Math.min(values.length - 1, idx));
+    if (idx === curIdx) return;
+    curIdx = idx;
+    list.querySelectorAll('.clw-item').forEach(function(el, i){
+      el.classList.toggle('sel', i === idx);
+    });
+    setVal(String(values[idx]));
+    if (typeof playTick === 'function') playTick();
+    clUpdateWeightDisplay();
+  }, { passive: true });
+
+  // Tocar un número lleva el rodillo hasta él, sin tener que girarlo.
+  list.addEventListener('click', function(e) {
+    var item = e.target.closest('[data-idx]');
+    if (!item) return;
+    list.scrollTo({ top: parseInt(item.dataset.idx, 10) * ITEM_H, behavior: 'smooth' });
   });
 }
 
-function clSetWeight(lb, oz) {
-  cl.weightLb = String(lb);
-  cl.weightOz = String(oz);
-  var elLb = document.getElementById('cl-weight-lb');
-  var elOz = document.getElementById('cl-weight-oz');
-  if (elLb) elLb.value = cl.weightLb;
-  if (elOz) elOz.value = cl.weightOz;
-  document.querySelectorAll('[data-action="weight"]').forEach(function(el) {
-    el.classList.toggle('sel', el.dataset.lb === String(lb) && el.dataset.oz === String(oz));
-  });
+function clUpdateWeightDisplay() {
+  var el = document.getElementById('cl-weight-display');
+  if (el) el.textContent = clWeightLabel() || '—';
+}
+
+function clInitWeightWheels() {
+  clEnsureWeightWheelCSS();
+  clBuildWheel('clw-lb-list', CLW_LBS,
+    function(){ return cl.weightLb; },
+    function(v){ cl.weightLb = v; });
+  clBuildWheel('clw-oz-list', CLW_OZS,
+    function(){ return cl.weightOz; },
+    function(v){ cl.weightOz = v; });
+  clUpdateWeightDisplay();
 }
 
 // Peso total en libras decimales (para la hoja de registro y validaciones).
@@ -4263,6 +4304,23 @@ function clWeightTotalLb() {
   var lb = parseFloat(cl.weightLb) || 0;
   var oz = parseFloat(cl.weightOz) || 0;
   return lb + (oz / 16);
+}
+
+// ── PESO EN TEXTO LEGIBLE ("1 lb 5 oz") ─────────────────────────────────────
+// 15 ago 2026: la hoja de registro pasa de tres columnas (Peso_LB, Peso_OZ,
+// Peso_Total_LB) a una sola, en el formato que el almacén lee de corrido.
+// El CSV de eBay NO cambia: File Exchange sigue recibiendo WeightMajor y
+// WeightMinor por separado, que es como los exige. Esto es solo para la hoja.
+function clWeightLabel() {
+  var lb = parseFloat(cl.weightLb) || 0;
+  var oz = parseFloat(cl.weightOz) || 0;
+  // normalizar: 20 oz → 1 lb 4 oz
+  lb += Math.floor(oz / 16);
+  oz = oz % 16;
+  if (lb <= 0 && oz <= 0) return '';
+  if (lb > 0 && oz > 0) return lb + ' lb ' + oz + ' oz';
+  if (lb > 0) return lb + ' lb';
+  return oz + ' oz';
 }
 
 function clSetDressLength(b) {
@@ -4717,33 +4775,41 @@ function clRenderReview() {
         oninput="cl.price=this.value">
     </div>
 
-    <!-- ── PESO DEL ARTÍCULO ────────────────────────────────────────────
-         Agregado 15 ago 2026. Va a tres destinos: WeightMajor/WeightMinor
-         del CSV de eBay, la hoja de Registro de Productos, y de ahí a
-         ShipStation, que lo pide al comprar la etiqueta. Sin esto había
-         que pesar la prenda otra vez al momento de enviar.
-         Los chips son sugerencias típicas por prenda para ir rápido en el
-         almacén; siempre se pueden ajustar a mano en las casillas. -->
+    <!-- ── PESO DEL ARTÍCULO — RODILLOS ────────────────────────────────
+         Dos rodillos estilo iPhone (como el selector de talla y el de
+         fecha que ya usa el módulo): uno para libras, otro para onzas.
+         Se gira con el dedo y se puede tocar cualquier número para saltar
+         a él. Reutiliza el mismo alto de renglón (44px) y el mismo
+         comportamiento de scroll-snap que el rodillo de talla, para que
+         se sienta igual en toda la app.
+         Destinos del peso: WeightMajor/WeightMinor del CSV de eBay (van
+         separados, así los exige File Exchange) y una sola celda legible
+         "1 lb 5 oz" en la hoja de registro. -->
     <div style="background:var(--sf2);border-radius:12px;padding:12px;margin-bottom:4px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:16px;font-weight:800;color:var(--sv)">⚖️</span>
         <span style="font-size:14px;color:var(--mu)">Peso:</span>
-        <input id="cl-weight-lb" type="text" inputmode="numeric" pattern="[0-9]*" value="${cl.weightLb || ''}"
-          placeholder="0"
-          style="width:56px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
-          oninput="cl.weightLb=this.value">
-        <span style="font-size:13px;color:var(--mu);font-weight:700">lb</span>
-        <input id="cl-weight-oz" type="text" inputmode="numeric" pattern="[0-9]*" value="${cl.weightOz || ''}"
-          placeholder="0"
-          style="width:56px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
-          oninput="cl.weightOz=this.value">
-        <span style="font-size:13px;color:var(--mu);font-weight:700">oz</span>
+        <strong id="cl-weight-display" style="font-size:16px;color:var(--ac);margin-left:auto">—</strong>
       </div>
-      <div class="cl-chips" id="cl-weight-chips">
-        ${clWeightPresets().map(function(w){
-          var sel = (String(cl.weightLb||'') === String(w.lb) && String(cl.weightOz||'') === String(w.oz)) ? ' sel' : '';
-          return '<button class="cl-chip' + sel + '" data-action="weight" data-lb="' + w.lb + '" data-oz="' + w.oz + '">' + w.label + '</button>';
-        }).join('')}
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div class="clw-wrap">
+            <div class="clw-fade-top"></div>
+            <div class="clw-indicator"></div>
+            <div class="clw-fade-bot"></div>
+            <div class="clw-list" id="clw-lb-list"></div>
+          </div>
+          <div style="text-align:center;margin-top:4px;font-size:12px;color:var(--mu);font-weight:700;letter-spacing:.5px">LB</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="clw-wrap">
+            <div class="clw-fade-top"></div>
+            <div class="clw-indicator"></div>
+            <div class="clw-fade-bot"></div>
+            <div class="clw-list" id="clw-oz-list"></div>
+          </div>
+          <div style="text-align:center;margin-top:4px;font-size:12px;color:var(--mu);font-weight:700;letter-spacing:.5px">OZ</div>
+        </div>
       </div>
     </div>
     <div id="cl-prices-status" style="min-height:20px;margin-bottom:10px"></div>
@@ -4795,8 +4861,8 @@ function clRenderReview() {
     <button class="add-btn" id="cl-complete-btn" onclick="clSubmit()">✅ COMPLETAR LISTING</button>
     <button class="ag-btn" onclick="clGo(4);clRenderPhotos()" style="margin-top:8px">← Back</button>`;
 
-  // Enganchar los chips de peso (touchend + click, patrón iOS)
-  clInitWeightListeners();
+  // Armar los rodillos de peso (libras y onzas)
+  clInitWeightWheels();
 
   // Generar título y descripción con Claude AI + precios eBay
   setTimeout(() => {
@@ -5336,6 +5402,7 @@ function clBuildEbayRow(photoUrls) {
       return min === 16 ? 0 : min;
     })(),
     weightTotalLb: (function(){ var t = clWeightTotalLb(); return t > 0 ? t.toFixed(2) : ''; })(),
+    weightLabel: clWeightLabel(),
   };
 }
 
@@ -5682,9 +5749,8 @@ function clSendToRegistroSheet(sess) {
       descripcion: (it.description || '').replace(/<[^>]*>/g, '').trim(),
       defectos: (it.defects || []).join(', '),
       notas: it.notes || '',
-      peso_lb: it.weightMajor === '' ? '' : it.weightMajor,
-      peso_oz: it.weightMinor === '' ? '' : it.weightMinor,
-      peso_total_lb: it.weightTotalLb || ''
+      // Una sola columna, en texto legible ("1 lb 5 oz"). Antes iban tres.
+      peso: it.weightLabel || ''
     };
   });
   fetch(CL_SHEET_URL, {
