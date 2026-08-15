@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-15c';
+window.CL_BUILD = '2026-08-15e';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -2819,6 +2819,7 @@ function screen(n) {
 let cl = {
   sku:'', type:'clothing', gender:'unisex', brand:'', brandCustom:'', category:'', size:'L',
   color:'', colorCustom:'', condition:'', defects:[], notes:'',
+  weightLb:'', weightOz:'',
   photos:{ front:null, back:null, tag:null, detail:null, meas1:null, meas2:null },
   clothingPrices: { minPrice: null, avgPrice: null, suggestedPrice: null, found: false },
   pricesLoading: false,
@@ -3101,7 +3102,7 @@ function clUpdateProgress(step) {
 // ── Step 1: SKU ─────────────────────────────────────────────
 function clRenderSKU() {
   cl = { sku:'', brand:'', brandCustom:'', category:'', size:'L',
-    color:'', colorCustom:'', condition:'', defects:[], notes:'',
+    color:'', colorCustom:'', condition:'', defects:[], notes:'', weightLb:'', weightOz:'',
     photos:{ front:null, back:null, tag:null, detail:null, meas1:null, meas2:null }, location:'', step:1 };
   // Update session badge
   clUpdateSessionBadge();
@@ -4212,6 +4213,58 @@ function clSetInseam(b) {
   document.querySelectorAll('.cl-inseam-chip').forEach(el => el.classList.toggle('sel', el.dataset.v===b));
 }
 
+// ── PESO: sugerencias típicas por prenda ────────────────────────────────────
+// Son atajos para el almacén, NO valores automáticos: nada se llena solo.
+// El peso que va a la etiqueta de ShipStation debe ser el real, así que las
+// casillas lb/oz siempre mandan sobre el chip.
+function clWeightPresets() {
+  var c = String(cl.category || '');
+  if (['Shorts','T-Shirt','Tank Top','Sleeveless','Blouse','Skirt'].indexOf(c) !== -1)
+    return [{lb:0,oz:6,label:'6 oz'},{lb:0,oz:8,label:'8 oz'},{lb:0,oz:10,label:'10 oz'},{lb:0,oz:12,label:'12 oz'}];
+  if (['Jeans','Pants','Shirt','Dress'].indexOf(c) !== -1)
+    return [{lb:0,oz:12,label:'12 oz'},{lb:1,oz:0,label:'1 lb'},{lb:1,oz:4,label:'1 lb 4 oz'},{lb:1,oz:8,label:'1 lb 8 oz'}];
+  if (['Sweater','Sweatshirt','Hoodie','Quarter Zip','Shacket','Vest'].indexOf(c) !== -1)
+    return [{lb:1,oz:0,label:'1 lb'},{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:2,oz:8,label:'2 lb 8 oz'}];
+  if (['Jacket','Coat'].indexOf(c) !== -1)
+    return [{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:3,oz:0,label:'3 lb'},{lb:4,oz:0,label:'4 lb'}];
+  if (['Shoes','Sneakers','Boots'].indexOf(c) !== -1)
+    return [{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'},{lb:2,oz:8,label:'2 lb 8 oz'},{lb:3,oz:0,label:'3 lb'}];
+  return [{lb:0,oz:8,label:'8 oz'},{lb:1,oz:0,label:'1 lb'},{lb:1,oz:8,label:'1 lb 8 oz'},{lb:2,oz:0,label:'2 lb'}];
+}
+
+// Mismo patrón iOS que el inseam: addEventListener con touchend Y click.
+// El onclick inline en elementos generados dinámicamente no es confiable
+// en Safari de iPhone.
+function clInitWeightListeners() {
+  document.querySelectorAll('[data-action="weight"]').forEach(function(btn) {
+    function pick(e) {
+      e.preventDefault();
+      clSetWeight(this.dataset.lb, this.dataset.oz);
+    }
+    btn.addEventListener('touchend', pick, false);
+    btn.addEventListener('click', pick, false);
+  });
+}
+
+function clSetWeight(lb, oz) {
+  cl.weightLb = String(lb);
+  cl.weightOz = String(oz);
+  var elLb = document.getElementById('cl-weight-lb');
+  var elOz = document.getElementById('cl-weight-oz');
+  if (elLb) elLb.value = cl.weightLb;
+  if (elOz) elOz.value = cl.weightOz;
+  document.querySelectorAll('[data-action="weight"]').forEach(function(el) {
+    el.classList.toggle('sel', el.dataset.lb === String(lb) && el.dataset.oz === String(oz));
+  });
+}
+
+// Peso total en libras decimales (para la hoja de registro y validaciones).
+function clWeightTotalLb() {
+  var lb = parseFloat(cl.weightLb) || 0;
+  var oz = parseFloat(cl.weightOz) || 0;
+  return lb + (oz / 16);
+}
+
 function clSetDressLength(b) {
   cl.dressLength = b;
   document.querySelectorAll('.cl-dresslength-chip').forEach(el => el.classList.toggle('sel', el.dataset.v===b));
@@ -4663,6 +4716,36 @@ function clRenderReview() {
         style="width:90px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
         oninput="cl.price=this.value">
     </div>
+
+    <!-- ── PESO DEL ARTÍCULO ────────────────────────────────────────────
+         Agregado 15 ago 2026. Va a tres destinos: WeightMajor/WeightMinor
+         del CSV de eBay, la hoja de Registro de Productos, y de ahí a
+         ShipStation, que lo pide al comprar la etiqueta. Sin esto había
+         que pesar la prenda otra vez al momento de enviar.
+         Los chips son sugerencias típicas por prenda para ir rápido en el
+         almacén; siempre se pueden ajustar a mano en las casillas. -->
+    <div style="background:var(--sf2);border-radius:12px;padding:12px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:16px;font-weight:800;color:var(--sv)">⚖️</span>
+        <span style="font-size:14px;color:var(--mu)">Peso:</span>
+        <input id="cl-weight-lb" type="text" inputmode="numeric" pattern="[0-9]*" value="${cl.weightLb || ''}"
+          placeholder="0"
+          style="width:56px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
+          oninput="cl.weightLb=this.value">
+        <span style="font-size:13px;color:var(--mu);font-weight:700">lb</span>
+        <input id="cl-weight-oz" type="text" inputmode="numeric" pattern="[0-9]*" value="${cl.weightOz || ''}"
+          placeholder="0"
+          style="width:56px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:18px;font-weight:800;text-align:center"
+          oninput="cl.weightOz=this.value">
+        <span style="font-size:13px;color:var(--mu);font-weight:700">oz</span>
+      </div>
+      <div class="cl-chips" id="cl-weight-chips">
+        ${clWeightPresets().map(function(w){
+          var sel = (String(cl.weightLb||'') === String(w.lb) && String(cl.weightOz||'') === String(w.oz)) ? ' sel' : '';
+          return '<button class="cl-chip' + sel + '" data-action="weight" data-lb="' + w.lb + '" data-oz="' + w.oz + '">' + w.label + '</button>';
+        }).join('')}
+      </div>
+    </div>
     <div id="cl-prices-status" style="min-height:20px;margin-bottom:10px"></div>
     <div class="price-row" style="margin-bottom:10px">
       <div class="pc editable" onclick="clOpenSheet('brand')"><div class="lbl">Marca</div><div class="val" style="font-size:14px;font-weight:700">${cl.brand}</div></div>
@@ -4711,6 +4794,9 @@ function clRenderReview() {
 
     <button class="add-btn" id="cl-complete-btn" onclick="clSubmit()">✅ COMPLETAR LISTING</button>
     <button class="ag-btn" onclick="clGo(4);clRenderPhotos()" style="margin-top:8px">← Back</button>`;
+
+  // Enganchar los chips de peso (touchend + click, patrón iOS)
+  clInitWeightListeners();
 
   // Generar título y descripción con Claude AI + precios eBay
   setTimeout(() => {
@@ -4810,6 +4896,34 @@ function buildClothingTitle() {
   // contradiciendo el ConditionID 1500. Le pasó a CLO-LAU-XS-62033.
   // Ahora solo se agrega si la condición REALMENTE es NWT y no está ya puesto.
   if (t.length < 75 && cl.condition === 'NWT' && !/\bNWT\b/.test(t)) t += ' NWT';
+
+  // ── RELLENO DEL TÍTULO HASTA ~80 CARACTERES ──────────────────────────────
+  // eBay permite 80 caracteres y los usa TODOS para hacer match con las
+  // búsquedas. Los títulos salían en 53–65, desperdiciando 15–27 caracteres
+  // de posicionamiento gratis. Se agregan atributos que YA tenemos capturados,
+  // en orden de valor de búsqueda, y solo si caben completos. No se inventa
+  // nada: si el dato no existe, no se agrega.
+  var _extras = [];
+  if (typeof clSizeType === 'function' && clSizeType() !== 'Regular') _extras.push(clSizeType());
+  if (cl.inseam && !/^(unspecified|unknown|n\/a)$/i.test(String(cl.inseam))) _extras.push(cl.inseam + ' Inseam');
+  if (cl.dressLength) _extras.push(cl.dressLength);
+  if (cl.outerMaterial) _extras.push(cl.outerMaterial);
+  if (cl.activity) _extras.push(cl.activity);
+  if (cl.style && cl.style !== 'Classic') _extras.push(cl.style);
+  // La forma larga de la condición es muy buscada ("new without tags"),
+  // pero solo si sobra espacio suficiente para escribirla completa.
+  var _condLong = cl.condition === 'NWOT' ? 'New Without Tags'
+                : cl.condition === 'NWT'  ? 'New With Tags' : '';
+  if (_condLong) _extras.push(_condLong);
+
+  for (var _i = 0; _i < _extras.length; _i++) {
+    var _cand = String(_extras[_i]).trim();
+    if (!_cand) continue;
+    // no repetir algo que ya aparece en el título
+    if (t.toLowerCase().indexOf(_cand.toLowerCase()) !== -1) continue;
+    if ((t + ' ' + _cand).length <= 80) t += ' ' + _cand;
+  }
+
   return t.substring(0,80);
 }
 
@@ -4820,10 +4934,31 @@ function buildClothingDesc() {
   const size = cl.size || 'One Size';
   const cond = clCondText();
   
-  let opening = `${brand} ${category} in ${color} color, Size ${size}. `;
-  opening += `Authentic piece in excellent condition. Perfect for collectors and everyday wear. `;
-  opening += `High quality fabric, expertly crafted. ${brand} brand reliability and style. `;
-  opening += `This item is ready to wear or display. Premium authentic piece at great value.`;
+  // ── APERTURA BASADA EN DATOS REALES ──────────────────────────────────────
+  // ⚠️ 15 ago 2026: la apertura era relleno genérico idéntico para todo:
+  // "Perfect for collectors and everyday wear" en un sweatshirt de niño, y
+  // "excellent condition" contradiciendo el ConditionID de New Without Tags.
+  // Ahora se arma con los atributos que SÍ tenemos capturados (los mismos que
+  // van en el título y en los item specifics), para que descripción, título y
+  // specifics digan lo mismo. Nada inventado: si el dato no existe, no se
+  // menciona.
+  var _det = [];
+  if (clCleanColor(cl.color)) _det.push('Color: ' + clCleanColor(cl.color));
+  if (cl.size) _det.push('Size: ' + cl.size);
+  if (typeof clSizeType === 'function' && clSizeType() !== 'Regular') _det.push('Size Type: ' + clSizeType());
+  if (cl.inseam && !/^(unspecified|unknown|n\/a)$/i.test(cl.inseam)) _det.push('Inseam: ' + cl.inseam);
+  if (cl.dressLength) _det.push('Length: ' + cl.dressLength);
+  if (cl.outerMaterial) _det.push('Outer Shell: ' + cl.outerMaterial);
+  if (cl.activity) _det.push('Activity: ' + cl.activity);
+
+  var _who = cl.gender === 'mens'   ? "men's"
+           : cl.gender === 'womens' ? "women's"
+           : cl.gender === 'kids'   ? "kids'" : '';
+
+  let opening = `Authentic ${brand} ${_who} ${category}`.replace(/\s+/g,' ').trim() + '. ';
+  if (_det.length) opening += _det.join(' · ') + '. ';
+  opening += `${cond}. Backed by fast same-business-day handling from our Lumberton, NC warehouse `;
+  opening += `and a 30-day return window. See all photos for exact condition and fit.`;
   
   let condition = `${cond}. `;
   if(cl.condition === 'NWT') condition += `Original tags attached, never worn. Perfect pristine condition. Stored properly with no flaws, shrinkage, or damage. `;
@@ -5143,6 +5278,23 @@ function clCleanColor(v) {
   });
 }
 
+// ── NORMALIZACIÓN Y GUARDIA DE PRECIO ───────────────────────────────────────
+// 🔴 15 ago 2026: CLO-POL-8-10-36763 se publicó en **$2,999.00** (ItemID
+// 336743794627). El valor del input viajaba CRUDO al CSV, sin normalizar ni
+// validar: se escribió "2999" en vez de "29.99" y nadie lo detuvo. En iOS el
+// teclado decimal también puede meter coma ("29,99"), que rompe el número.
+// Un error de un punto decimal deja el artículo invisible y, si alguien lo
+// compra, es un problema serio. Ahora se normaliza y se valida antes de salir.
+function clNormalizePrice(v) {
+  var s = String(v == null ? '' : v).trim();
+  s = s.replace(/[$\s]/g, '');
+  // coma decimal → punto (el teclado en español mete coma)
+  if (s.indexOf(',') !== -1 && s.indexOf('.') === -1) s = s.replace(',', '.');
+  s = s.replace(/[^0-9.]/g, '');
+  var n = parseFloat(s);
+  return isFinite(n) ? n : NaN;
+}
+
 function clBuildEbayRow(photoUrls) {
   const title = cl._ebayTitle || buildClothingTitle();
   const desc  = document.getElementById('cl-desc-display') ? document.getElementById('cl-desc-display').innerHTML : '';
@@ -5170,9 +5322,20 @@ function clBuildEbayRow(photoUrls) {
     shoeWidth:  cl.shoeWidth || '',
     type:       cl.category || '',
     description:desc || ('<p>' + title + '</p><p>Ships fast from Lumberton, NC.</p>'),
-    price:      priceEl ? priceEl.value : '19.99',
+    price:      (function(){ var n = clNormalizePrice(priceEl ? priceEl.value : ''); return isFinite(n) ? n.toFixed(2) : ''; })(),
     location:   'Lumberton, NC',
     warehouseLocation: cl.location || '',
+    // ── PESO (15 ago 2026) ───────────────────────────────────────────────
+    // eBay File Exchange lo quiere partido: WeightMajor = libras enteras,
+    // WeightMinor = onzas restantes. Se guarda también el total decimal
+    // para la hoja de registro y para ShipStation.
+    weightMajor: (function(){ var t = clWeightTotalLb(); return t > 0 ? Math.floor(t) : ''; })(),
+    weightMinor: (function(){
+      var t = clWeightTotalLb(); if (!(t > 0)) return '';
+      var maj = Math.floor(t), min = Math.round((t - maj) * 16);
+      return min === 16 ? 0 : min;
+    })(),
+    weightTotalLb: (function(){ var t = clWeightTotalLb(); return t > 0 ? t.toFixed(2) : ''; })(),
   };
 }
 
@@ -5518,7 +5681,10 @@ function clSendToRegistroSheet(sess) {
       fotos: it.photos || '',
       descripcion: (it.description || '').replace(/<[^>]*>/g, '').trim(),
       defectos: (it.defects || []).join(', '),
-      notas: it.notes || ''
+      notas: it.notes || '',
+      peso_lb: it.weightMajor === '' ? '' : it.weightMajor,
+      peso_oz: it.weightMinor === '' ? '' : it.weightMinor,
+      peso_total_lb: it.weightTotalLb || ''
     };
   });
   fetch(CL_SHEET_URL, {
@@ -5532,6 +5698,52 @@ function clSendToRegistroSheet(sess) {
 function clExportEbayCSV() {
   var sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
   if (!sess.length) { toast('⚠️ No items — complete a listing first'); return; }
+
+  // ── GUARDIA DE PRECIO ──────────────────────────────────────────────────
+  // Se revisa ANTES de mandar nada a la hoja de registro o a Drive, para que
+  // un precio malo no se propague a los demás sistemas. Mismo criterio que
+  // usamos con la fecha de expiración en Product Scanner: si sabemos que el
+  // dato está mal, el archivo no sale.
+  var _badPrice = sess.filter(function(it){
+    var n = clNormalizePrice(it.price);
+    return !isFinite(n) || n < 0.99 || n > 499.99;
+  });
+  if (_badPrice.length) {
+    var _lista = _badPrice.map(function(it){
+      var n = clNormalizePrice(it.price);
+      return '• ' + (it.sku || it.title || '?') + '  →  ' +
+             (isFinite(n) ? '$' + n.toFixed(2) : 'inválido') +
+             (isFinite(n) && n > 499.99 ? '   ¿faltó el punto decimal?' : '');
+    }).join('\n');
+    alert(
+      '🚫 EXPORT DETENIDO — precio fuera de rango\n\n' + _lista +
+      '\n\nEl rango permitido es $0.99 – $499.99.\n\n' +
+      'Un precio de $2,999 en vez de $29.99 deja el artículo invisible.\n' +
+      'Corrige el precio y exporta otra vez.'
+    );
+    toast('🚫 Export detenido — ' + _badPrice.length + ' precio(s) fuera de rango');
+    return;
+  }
+
+  // ── AVISO DE PESO FALTANTE ─────────────────────────────────────────────
+  // A diferencia del precio, esto NO bloquea: un peso ausente no hace que
+  // eBay rechace el listado. Pero sin él, al comprar la etiqueta en
+  // ShipStation hay que ir a pesar la prenda otra vez. Es un aviso para que
+  // se decida a conciencia, no un obstáculo para el almacén.
+  var _sinPeso = sess.filter(function(it){
+    return !it.weightTotalLb || parseFloat(it.weightTotalLb) <= 0;
+  });
+  if (_sinPeso.length) {
+    var _lp = _sinPeso.map(function(it){ return '• ' + (it.sku || it.title || '?'); }).join('\n');
+    if (!confirm(
+      '⚖️ ' + _sinPeso.length + ' artículo(s) SIN peso:\n\n' + _lp +
+      '\n\nEl listado sube igual, pero al comprar la etiqueta en ShipStation\n' +
+      'vas a tener que pesar la prenda otra vez.\n\n¿Exportar así?'
+    )) {
+      toast('Export cancelado — agrega el peso');
+      return;
+    }
+  }
 
   // Enviar también a la hoja de registro de Google Sheets (en paralelo, no bloquea)
   clSendToRegistroSheet(sess);
@@ -5550,7 +5762,8 @@ function clExportEbayCSV() {
     'C:Inseam','C:Dress Length','C:Outer Shell Material','C:Performance/Activity','C:Width',
     'PicURL','*Description','*Format','*Duration',
     '*StartPrice','*Quantity','ImmediatePayRequired','*Location','*DispatchTimeMax',
-    'ShippingProfileName','ReturnProfileName','PaymentProfileName'];
+    'ShippingProfileName','ReturnProfileName','PaymentProfileName',
+    'WeightMajor','WeightMinor'];
   var lines=['Info,Version=1.0.0,Template=fx_category_template_EBAY_US',HDR.join(',')];
   sess.forEach(function(r){
     var needsInseam = ['Jeans','Pants','Shorts'].includes(r.type);
@@ -5578,7 +5791,9 @@ function clExportEbayCSV() {
       asp(r.shoeWidth) || (needsWidth ? 'Regular (B/M)' : ''),
       r.photos||'',
       r.description||('<p>'+(r.title||'')+'</p>'),
-      'FixedPrice','GTC',r.price||'19.99','1','1','Lumberton, NC','1',SHIP,RET,PAY
+      'FixedPrice','GTC',r.price||'19.99','1','1','Lumberton, NC','1',SHIP,RET,PAY,
+      (r.weightMajor === '' || r.weightMajor == null) ? '' : r.weightMajor,
+      (r.weightMinor === '' || r.weightMinor == null) ? '' : r.weightMinor
     ].map(q).join(','));
   });
   var csv=lines.join('\r\n');
