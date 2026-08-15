@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-15b';
+window.CL_BUILD = '2026-08-15c';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -3791,7 +3791,7 @@ function clRenderAttr() {
     <div class="cl-sect" id="inseam-sect" style="display:${['Pants','Jeans','Shorts'].includes(cl.category)?'block':'none'}">
       <div class="lbl">INSEAM (largo de pierna)</div>
       <div class="cl-chips" id="inseam-chips">
-        ${['28"','29"','30"','31"','32"','33"','34"','36"','Unspecified'].map(v=>
+        ${clInseamOptions().map(v=>
           '<button class="cl-chip cl-inseam-chip' + (cl.inseam===v?' sel':'') + '" data-v="' + v + '" data-action="inseam">' + v + '</button>'
         ).join('')}
       </div>
@@ -5091,6 +5091,37 @@ function clGetConditionId() {
 // "Boys/Girls" y el item specific diciendo "Unisex Adults" — se contradicen,
 // y en una categoría de niños "Unisex Adults" ni siquiera es un valor válido.
 // Ahora los dos caminos llaman a la MISMA función.
+// ── SIZE TYPE INFERIDO DE LA TALLA ──────────────────────────────────────────
+// ⚠️ 15 ago 2026: sizeType estaba clavado en 'Regular' para TODO. Pero
+// CLO-POL-4XLT-58999 es talla 4XLT (4X Large **Tall**) y salió como "Regular".
+// eBay usa este aspecto como filtro de búsqueda: un comprador que filtra
+// "Big & Tall" nunca ve ese short, aunque sea exactamente lo que busca.
+// Solo se cambia cuando la talla lo indica claramente; si hay duda, Regular.
+function clSizeType() {
+  var s = String(cl.size || '').trim();
+  if (!s) return 'Regular';
+  // Hombre: tallas Tall terminan en LT/XT (LT, XLT, 2XLT, 4XLT) y las Big
+  // terminan en XB o dígito+B (1XB, 2XB). Ojo: el patrón tiene que mirar la
+  // letra ANTERIOR a la T/B, no solo la última — "4XLT" termina en "LT".
+  if (cl.gender === 'mens' && (/(?:L|X)T$/i.test(s) || /(?:X|\d)B$/i.test(s) || /\b(tall|big)\b/i.test(s))) return 'Big & Tall';
+  // Mujer: 1X/2X/3X/4X o tallas numéricas con W (14W, 16W) = Plus
+  if (cl.gender === 'womens' && /^[1-9]X$|^\d{1,2}W$|\bplus\b/i.test(s)) return 'Plus';
+  return 'Regular';
+}
+
+// ── OPCIONES DE INSEAM SEGÚN LA PRENDA ──────────────────────────────────────
+// ⚠️ 15 ago 2026: el selector ofrecía SOLO 28"–36", que son largos de
+// pantalón. Para shorts eso es imposible — un short mide 5"–13". Las
+// muchachas no tenían más remedio que escoger un valor falso, y los dos
+// shorts del lote de las 08:14 se publicaron con Inseam 30". Eso no es un
+// detalle cosmético: es una medida incorrecta en la ficha, y por ahí entran
+// las devoluciones y los reclamos de "no coincide con la descripción".
+function clInseamOptions() {
+  return cl.category === 'Shorts'
+    ? ['5"','7"','9"','11"','13"','Unspecified']
+    : ['28"','29"','30"','31"','32"','33"','34"','36"','Unspecified'];
+}
+
 function clDept() {
   return cl.gender === 'mens'   ? 'Men'
        : cl.gender === 'womens' ? 'Women'
@@ -5126,7 +5157,7 @@ function clBuildEbayRow(photoUrls) {
     conditionId:clGetConditionId ? clGetConditionId() : 1000,
     aspects:    clBuildAspects(),
     brand:      cl.brand || '',
-    sizeType:   'Regular',
+    sizeType:   clSizeType(),
     size:       cl.size || '',
     department: dept,
     color:      clCleanColor(cl.color),
@@ -5540,7 +5571,7 @@ function clExportEbayCSV() {
       'Add',r.sku||'',r.categoryId||'63861',r.title||'',r.conditionId||'1000',
       r.brand||'',r.sizeType||'Regular',r.size||'',r.department||'',asp(r.color),
       asp(r.style),asp(r.type),
-      asp(r.inseam) || (needsInseam ? '30"' : ''),
+      asp(r.inseam) || (needsInseam ? (r.type === 'Shorts' ? '9"' : '30"') : ''),
       asp(r.dressLength) || (needsDressLen ? 'Knee Length' : ''),
       asp(r.outerMaterial) || (needsOuter ? 'Polyester' : ''),
       asp(r.activity) || (needsActivity ? 'General Fitness' : ''),
