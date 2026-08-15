@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-14a';
+window.CL_BUILD = '2026-08-15b';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -4795,7 +4795,12 @@ function clCondShort() {
 function buildClothingTitle() {
   const cond  = clCondShort();
   const gdr   = cl.gender==='mens'?"Men's":cl.gender==='womens'?"Women's":cl.gender==='kids'?"Boys/Girls":cl.gender||'';
-  const color = cl.color && cl.color !== 'Unknown' ? cl.color + ' ' : '';
+  // ⚠️ CORREGIDO (15 ago 2026): antes solo se filtraba 'Unknown', así que un
+  // color marcado como "Other" se colaba al título — CLO-RAL-18MONTHS-41921
+  // salió como "Ralph Lauren Jacket Other Size 18 MONTHS Boys/Girls NWOT".
+  // Se usa el MISMO helper que la fila del CSV para que nunca se separen.
+  const _c = clCleanColor(cl.color);
+  const color = _c ? _c + ' ' : '';
   const parts = [cl.brand, cl.category, color + 'Size ' + cl.size, gdr, cond].filter(Boolean);
   let t = parts.join(' ').replace(/\s+/g,' ').trim();
   // ⚠️ BUG CORREGIDO (14 ago 2026): antes decía !t.includes('NWT'), pero
@@ -4826,10 +4831,16 @@ function buildClothingDesc() {
   else condition += `Gently used, well maintained. No major flaws or damage. `;
   condition += `Ready to wear immediately.`;
   
-  let defects = '';
-  if(cl.defects && cl.defects !== 'none' && cl.defects !== 'No defects') {
-    defects = `Defects: ${cl.defects}`;
-  }
+  // ⚠️ BUG CORREGIDO (15 ago 2026): cl.defects es un ARRAY, no un string.
+  // Un arreglo vacío [] es TRUTHY en JavaScript, y [] !== 'none' también es
+  // true, así que la condición vieja siempre pasaba. El resultado en el CSV
+  // era "<strong>Defects:</strong><br>Defects: " — la etiqueta duplicada y
+  // sin contenido (le pasó a CLO-POL-1XB-47263). Ahora se valida largo real
+  // y se quita el prefijo repetido.
+  var _defList = Array.isArray(cl.defects)
+    ? cl.defects.filter(function(d){ return d && d !== 'none' && d !== 'No defects'; })
+    : (cl.defects && cl.defects !== 'none' && cl.defects !== 'No defects' ? [cl.defects] : []);
+  let defects = _defList.length ? _defList.join(', ') : '';
   
   let html = `<p><strong>${brand} ${category} - ${color} Size ${size}</strong><br>${opening}</p>`;
   html += `<p><strong>Condition:</strong><br>${condition}</p>`;
@@ -5019,7 +5030,7 @@ async function clUploadAllPhotos() {
 // Columnas: SKU | Photo URLs | Title | Category | Aspects
 function clBuildAspects() {
   const condMap = { NWT:'New with tags', NWOT:'New without tags', EXCEL:'Used - Excellent', GOOD:'Used - Good', FAIR:'Used - Acceptable' };
-  const dept = cl.gender==='mens' ? 'Men' : cl.gender==='womens' ? 'Women' : cl.gender==='kids' ? 'Boys' : '';
+  const dept = clDept(); // mismo helper que clBuildEbayRow — antes divergían
   const parts = [
     cl.brand                               ? 'Brand='      + cl.brand                        : '',
     cl.size                                ? 'Size='       + cl.size                         : '',
@@ -5072,10 +5083,39 @@ function clGetConditionId() {
   return {NWT:1000, NWOT:1500, EXCEL:3000, GOOD:3000, FAIR:3000}[cl.condition] || 1000;
 }
 
+// ── HELPERS COMPARTIDOS: Department y Color ─────────────────────────────────
+// ⚠️ 15 ago 2026: el Department se calculaba en DOS lugares con lógica
+// distinta. clBuildAspects() (línea ~5033) sí contemplaba 'kids' → 'Boys',
+// pero clBuildEbayRow() NO, y todo lo que no fuera mens/womens caía en
+// 'Unisex Adults'. Por eso CLO-POL-18-20-88866 salió con el título diciendo
+// "Boys/Girls" y el item specific diciendo "Unisex Adults" — se contradicen,
+// y en una categoría de niños "Unisex Adults" ni siquiera es un valor válido.
+// Ahora los dos caminos llaman a la MISMA función.
+function clDept() {
+  return cl.gender === 'mens'   ? 'Men'
+       : cl.gender === 'womens' ? 'Women'
+       : cl.gender === 'kids'   ? 'Boys'
+       : 'Unisex Adults';
+}
+
+// Un solo criterio de "color de relleno", usado en el título y en el CSV.
+// Antes el título filtraba una lista y la fila del CSV solo filtraba 'Unknown',
+// así que un color "Other" se colaba a un lado y al otro no.
+function clCleanColor(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (!s || /^(unknown|other|unspecified|n\/a|none|varios|multi)$/i.test(s)) return '';
+  // Mayúscula inicial en cada palabra, menos conectores ("blue and beige"
+  // → "Blue and Beige"), para que el título no se vea descuidado.
+  return s.replace(/\b[a-záéíóúñ][\wáéíóúñ]*/gi, function(w, i){
+    if (i > 0 && /^(and|y|with|con|de|of)$/i.test(w)) return w.toLowerCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  });
+}
+
 function clBuildEbayRow(photoUrls) {
   const title = cl._ebayTitle || buildClothingTitle();
   const desc  = document.getElementById('cl-desc-display') ? document.getElementById('cl-desc-display').innerHTML : '';
-  const dept  = cl.gender==='mens' ? 'Men' : cl.gender==='womens' ? 'Women' : 'Unisex Adults';
+  const dept  = clDept();
   const priceEl = document.getElementById('cl-price-input');
   return {
     sku:        cl.sku || '',
@@ -5089,7 +5129,7 @@ function clBuildEbayRow(photoUrls) {
     sizeType:   'Regular',
     size:       cl.size || '',
     department: dept,
-    color:      (cl.color && cl.color!=='Unknown') ? cl.color : '',
+    color:      clCleanColor(cl.color),
     style:      cl.style || '',
     inseam:     cl.inseam || '',
     dressLength:cl.dressLength || '',
@@ -5487,15 +5527,24 @@ function clExportEbayCSV() {
     var needsOuter = ['Jacket','Coat','Vest'].includes(r.type);
     var needsActivity = ['Activewear Top','Activewear Bottom'].includes(r.type);
     var needsWidth = (r.type === 'shoes');
+    // ⚠️ AGREGADO (15 ago 2026): eBay muestra los item specifics tal cual en
+    // la ficha del producto. Mandar "Unspecified" es peor que no mandar nada:
+    // ocupa el renglón, no aporta a la búsqueda y se ve mal (CLO-POL-1XB-47263
+    // salió con C:Inseam = "Unspecified"). Si el valor es un relleno, se manda
+    // vacío y eBay simplemente omite el aspecto.
+    function asp(v){
+      var s = String(v == null ? '' : v).trim();
+      return /^(unspecified|unknown|n\/a|na|none|not specified|select|--)$/i.test(s) ? '' : s;
+    }
     lines.push([
       'Add',r.sku||'',r.categoryId||'63861',r.title||'',r.conditionId||'1000',
-      r.brand||'',r.sizeType||'Regular',r.size||'',r.department||'',r.color||'',
-      r.style||'',r.type||'',
-      (r.inseam || (needsInseam ? '30"' : '')),
-      (r.dressLength || (needsDressLen ? 'Knee Length' : '')),
-      (r.outerMaterial || (needsOuter ? 'Polyester' : '')),
-      (r.activity || (needsActivity ? 'General Fitness' : '')),
-      (r.shoeWidth || (needsWidth ? 'Regular (B/M)' : '')),
+      r.brand||'',r.sizeType||'Regular',r.size||'',r.department||'',asp(r.color),
+      asp(r.style),asp(r.type),
+      asp(r.inseam) || (needsInseam ? '30"' : ''),
+      asp(r.dressLength) || (needsDressLen ? 'Knee Length' : ''),
+      asp(r.outerMaterial) || (needsOuter ? 'Polyester' : ''),
+      asp(r.activity) || (needsActivity ? 'General Fitness' : ''),
+      asp(r.shoeWidth) || (needsWidth ? 'Regular (B/M)' : ''),
       r.photos||'',
       r.description||('<p>'+(r.title||'')+'</p>'),
       'FixedPrice','GTC',r.price||'19.99','1','1','Lumberton, NC','1',SHIP,RET,PAY
