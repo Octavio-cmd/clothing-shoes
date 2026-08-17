@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-15g';
+window.CL_BUILD = '2026-08-17a';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -5336,11 +5336,14 @@ function clDept() {
 function clCleanColor(v) {
   var s = String(v == null ? '' : v).trim();
   if (!s || /^(unknown|other|unspecified|n\/a|none|varios|multi)$/i.test(s)) return '';
-  // Mayúscula inicial en cada palabra, menos conectores ("blue and beige"
-  // → "Blue and Beige"), para que el título no se vea descuidado.
+  // ⚠️ BUG CORREGIDO (17 ago 2026): antes solo se ponía en mayúscula la
+  // PRIMERA letra y el resto se dejaba tal cual. Con "navy blue" funcionaba,
+  // pero "RED BLACK" seguía gritado — salió así en el título y en el item
+  // specific de CLO-LAU-XS-51360 y CLO-POL-2XB-45469. Faltaba bajar el resto
+  // de la palabra a minúsculas.
   return s.replace(/\b[a-záéíóúñ][\wáéíóúñ]*/gi, function(w, i){
     if (i > 0 && /^(and|y|with|con|de|of)$/i.test(w)) return w.toLowerCase();
-    return w.charAt(0).toUpperCase() + w.slice(1);
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
   });
 }
 
