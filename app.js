@@ -5371,7 +5371,7 @@ function clSizeType() {
   // letra ANTERIOR a la T/B, no solo la última — "4XLT" termina en "LT".
   if (cl.gender === 'mens' && (/(?:L|X)T$/i.test(s) || /(?:X|\d)B$/i.test(s) || /\b(tall|big)\b/i.test(s))) return 'Big & Tall';
   // Mujer: 1X/2X/3X/4X o tallas numéricas con W (14W, 16W) = Plus
-  if (cl.gender === 'womens' && /^[1-9]X$|^\d{1,2}W$|\bplus\b/i.test(s)) return 'Plus';
+  if (cl.gender === 'womens' && /^[0-9]X$|^[3-9]XL$|^\d{1,2}W$|\bplus\b/i.test(s)) return 'Plus';
   return 'Regular';
 }
 
