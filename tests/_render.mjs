@@ -25,14 +25,15 @@ function constante(src, nombre) {
   return src.slice(m.index, src.indexOf('];', m.index) + 2);
 }
 
-const CONSTS = ['CL_BRANDS','CL_CATS','CL_SHOE_CATS','CL_COLORS','CL_CONDITIONS',
+const CONSTS = ['CL_BRANDS','CL_CATS','CL_SHOE_CATS','CL_COLORS','CL_CONDITIONS','PHOTO_SLOTS',
                 'CL_STYLES','CL_DEFECTS','CL_GENDER_OPTIONS','CL_TYPE_OPTIONS',
                 'CL_SIZES_ALPHA','CL_SIZES_NUM','CL_SIZES_KIDS','CL_SIZES_SHOES'];
 
 const FN_TAX = ['clTaxV134','clTaxSeleccion','clTaxCategorias','clTaxLimpiarDependientes',
                 'clTaxRenderSelectores','clTaxCategoriaActiva','clTaxValorReutilizado',
                 'clTaxValoresAspectos','clTaxPodarAspectos','clTaxEsc','clTaxAviso',
-                'clTaxRenderAspectos','clTaxRenderAspecto','clTaxInitRuedas','clTaxSetAspect'];
+                'clTaxRenderAspectos','clTaxRenderAspecto','clTaxInitRuedas','clTaxSetAspect',
+                'clTaxBuildItem','clTaxInforme','clTaxEtiquetaProblema','clTaxRenderInforme'];
 
 // conTax=false reproduce el codigo anterior al paso 2 (sin las funciones nuevas).
 export function entorno(src, conTax) {
@@ -53,9 +54,21 @@ export function entorno(src, conTax) {
       : ['28"','29"','30"','31"','32"','33"','34"','36"','Unspecified']; }
     ${fns}
     ${extraerFuncion(src, 'clRenderAttr')}
+    ${src.includes('function clRenderReview(') ? extraerFuncion(src, 'clRenderReview') : ''}
+    // stubs: la pantalla de revision solo los referencia dentro de onclick
+    function clGenerateEbayTitle(){} function clInitWeightWheels(){}
+    function clRenderPhotos(){} function esc(x){ return String(x==null?'':x); }
+    function locBadgeHTML(){ return '<loc/>'; } function locEmptyHTML(){ return '<loc-empty/>'; }
+    function clWeightLabel(){ return ''; } function clUpdateTotal(){}
+    function clCondText(){ return ''; } function clCondShort(){ return ''; }
+    function getClothingPrice(){} function clUpdateSKUDisplay(){}
+    var localStorage = { getItem: function(){ return null; }, setItem: function(){}, removeItem: function(){} };
     return { cl: cl, tax: (typeof ClTaxonomy !== 'undefined' ? ClTaxonomy : null),
              render: function(){ _cap.innerHTML=''; clRenderAttr(); return _cap.innerHTML; },
-             podar: function(){ return clTaxPodarAspectos(); } };
+             podar: function(){ return clTaxPodarAspectos(); },
+             renderReview: function(){ _cap.innerHTML=''; clRenderReview(); return _cap.innerHTML; },
+             informe: function(){ return clTaxInforme(cl); },
+             item: function(cid){ return clTaxBuildItem(cl, cid); } };
   `;
   return new Function(cuerpo)();
 }

@@ -338,6 +338,118 @@
     return faltan;
   }
 
+  // ── validacion oficial ────────────────────────────────────────────────────
+  // Comprueba un item completo contra una categoria y devuelve TODOS los
+  // problemas, no solo el primero. No normaliza, no convierte y no rellena:
+  // si el valor no coincide exactamente con el oficial, es un problema.
+  //
+  //   item = { 'Size': 'M', 'Size Type': 'Regular', 'Heel Style': 'Wedge', ... }
+  //
+  // Devuelve { ok, categoryId, problemas: [...], revisados, obligatorios }.
+  function clValidateTaxonomyItem(item, categoryId) {
+    var problemas = [];
+    var pon = function (codigo, aspecto, mensaje, extra) {
+      var p = { codigo: codigo, aspecto: aspecto || null, mensaje: mensaje };
+      if (extra) for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) p[k] = extra[k];
+      problemas.push(p);
+    };
+
+    if (!_datos) {
+      pon('SIN_TAXONOMIA', null, 'La taxonomia oficial no esta cargada.');
+      return { ok: false, categoryId: null, problemas: problemas, revisados: 0, obligatorios: 0 };
+    }
+    var cid = categoryId === undefined || categoryId === null ? '' : String(categoryId);
+    var cat = _datos.categorias[cid];
+    if (!cat) {
+      pon('CATEGORIA_INEXISTENTE', null,
+        'La categoria ' + (cid || '(vacia)') + ' no existe en el arbol ' + ARBOL + ' v' + VERSION + '.',
+        { categoryId: cid });
+      return { ok: false, categoryId: cid, problemas: problemas, revisados: 0, obligatorios: 0 };
+    }
+
+    item = item || {};
+    var admite     = function (n) { return !!cat.a[n]; };
+    var esCalzado  = admite('US Shoe Size');
+    var esRopa     = admite('Size');
+
+    // 1) lo que el item trae y la categoria no admite, o trae con valor malo
+    for (var nombre in item) {
+      if (!Object.prototype.hasOwnProperty.call(item, nombre)) continue;
+      var valor = item[nombre];
+      // Vacio, o solo espacios, cuenta como AUSENTE: lo reporta el bucle de
+      // obligatorios mas abajo. Si no, un "   " se reportaria dos veces, como
+      // valor no oficial y ademas como obligatorio que falta.
+      if (valor === undefined || valor === null || String(valor).trim() === '') continue;
+
+      if (!admite(nombre)) {
+        // Los cuatro casos que eBay rechaza y que conviene nombrar aparte,
+        // porque el motivo real se pierde bajo un "aspecto no admitido".
+        if (nombre === 'Size' && esCalzado)
+          pon('SIZE_EN_CALZADO', 'Size',
+            'El calzado no usa Size. Esta categoria exige US Shoe Size.', { valor: valor });
+        else if (nombre === 'US Shoe Size' && esRopa)
+          pon('US_SHOE_SIZE_EN_ROPA', 'US Shoe Size',
+            'La ropa no usa US Shoe Size. Esta categoria usa Size.', { valor: valor });
+        else if (nombre === 'Size Type')
+          pon('SIZE_TYPE_NO_ADMITIDO', 'Size Type',
+            'Esta categoria no admite Size Type.', { valor: valor });
+        else
+          pon('ASPECTO_NO_ADMITIDO', nombre,
+            'La categoria no admite el aspecto "' + nombre + '".', { valor: valor });
+        continue;
+      }
+
+      if (!clAspectValido(cid, nombre, valor)) {
+        var permitidos = clAspectValues(cid, nombre);
+        if (nombre === 'Department')
+          pon('DEPARTMENT_INCOMPATIBLE', 'Department',
+            'Department "' + valor + '" no es valido en esta categoria.',
+            { valor: valor, permitidos: permitidos });
+        else
+          pon('VALOR_NO_OFICIAL', nombre,
+            'El valor "' + valor + '" no esta en la lista oficial de "' + nombre + '".',
+            { valor: valor, permitidos: permitidos });
+      }
+    }
+
+    // 2) obligatorios que faltan
+    var obligatorios = 0;
+    for (var n2 in cat.a) {
+      if (!Object.prototype.hasOwnProperty.call(cat.a, n2)) continue;
+      if (cat.a[n2].r !== 1) continue;
+      obligatorios++;
+      var v2 = item[n2];
+      if (v2 === undefined || v2 === null || String(v2).trim() === '')
+        pon('OBLIGATORIO_AUSENTE', n2, 'Falta el aspecto obligatorio "' + n2 + '".');
+    }
+
+    return {
+      ok: problemas.length === 0,
+      categoryId: cid,
+      nombre: cat.n,
+      ruta: cat.ruta,
+      problemas: problemas,
+      revisados: Object.keys(item).length,
+      obligatorios: obligatorios
+    };
+  }
+
+  // Igual, pero resolviendo antes la categoria desde la seleccion. Si la
+  // combinacion no se resuelve, ese es el unico problema que se reporta:
+  // sin categoria no hay nada mas que validar.
+  function clValidateTaxonomySeleccion(sel, item) {
+    var r = clResolveLeaf(sel);
+    if (!r.ok) {
+      return {
+        ok: false, categoryId: null, problemas: [{
+          codigo: 'COMBINACION_SIN_RESOLVER', aspecto: null,
+          mensaje: r.mensaje || 'No se pudo resolver la categoria.', causa: r.codigo
+        }], revisados: 0, obligatorios: 0
+      };
+    }
+    return clValidateTaxonomyItem(item, r.categoryId);
+  }
+
   // Prendas ofrecibles para una seleccion superior. Salen de `seleccion`, no de
   // listas escritas a mano. Devuelve [] si la seleccion aun esta incompleta.
   function clCategoriesFor(sel) {
@@ -376,6 +488,8 @@
     clAspectsFor: clAspectsFor,
     clAspectValido: clAspectValido,
     clAspectosFaltantes: clAspectosFaltantes,
+    clValidateTaxonomyItem: clValidateTaxonomyItem,
+    clValidateTaxonomySeleccion: clValidateTaxonomySeleccion,
     ORDEN_ASPECTOS: ORDEN,
     TOPE_CHIPS: TOPE_CHIPS,
     clCategoriesFor: clCategoriesFor

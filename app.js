@@ -3346,6 +3346,139 @@ function clTaxBuildRueda(cid, a) {
   });
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 4 — VALIDACION PREVIA EN MODO INFORME (SIGUE DETRAS DEL FLAG APAGADO)
+//
+// Dice que le faltaria o que rechazaria eBay ANTES de exportar. En este paso
+// solo informa: no cambia el CSV, no toca clExportEbayCSV y no bloquea nada.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Fuente unica de los valores capturados. Funcion pura: recibe el estado y
+// devuelve un objeto nuevo con los nombres EXACTOS de eBay.
+//
+// La talla es el punto delicado. Hoy vive en cl.size, que no distingue entre
+// ropa y calzado. Aqui se decide por lo que admite la categoria y se emite
+// como 'Size' O como 'US Shoe Size', NUNCA como ambos: mandar las dos es uno
+// de los errores que este validador tiene que cazar, no cometer.
+function clTaxBuildItem(estado, categoryId) {
+  var st = estado || cl;
+  var item = {};
+
+  // 1) los aspectos capturados en el contenedor oficial
+  var origen = st.aspects || {};
+  for (var k in origen)
+    if (Object.prototype.hasOwnProperty.call(origen, k) && origen[k] !== '' && origen[k] != null)
+      item[k] = origen[k];
+
+  // 2) Brand y Color salen de los campos que ya existen, no de un segundo campo
+  var marca = st.brand === 'Other' ? (st.brandCustom || '') : (st.brand || '');
+  var color = st.color === 'Other' ? (st.colorCustom || '') : (st.color || '');
+  if (marca) item['Brand'] = marca;
+  if (color) item['Color'] = color;
+
+  if (!categoryId) return item;   // sin categoria no se puede decidir la talla
+
+  var aspectos = {};
+  var lista = clAspectsFor(categoryId);
+  for (var i = 0; i < lista.length; i++) aspectos[lista[i].nombre] = lista[i];
+
+  // 3) Department lo fija el grupo elegido (Unisex Adults, Girls, Baby...)
+  var res = clResolveLeaf(clTaxSeleccion());
+  if (res.ok && res.department && aspectos['Department']) item['Department'] = res.department;
+
+  // 4) la talla, en su aspecto y solo en uno
+  delete item['Size'];
+  delete item['US Shoe Size'];
+  var campoTalla = aspectos['US Shoe Size'] ? 'US Shoe Size'
+                 : aspectos['Size']         ? 'Size'
+                 : null;
+  if (campoTalla && st.size) item[campoTalla] = st.size;
+
+  return item;
+}
+
+// Informe del artculo actual. Devuelve el resultado del validador puro.
+function clTaxInforme(estado) {
+  if (!clTaxV134()) return null;
+  var r = clResolveLeaf(clTaxSeleccion());
+  if (!r.ok) {
+    return {
+      ok: false, categoryId: null, problemas: [{
+        codigo: 'COMBINACION_SIN_RESOLVER', aspecto: null,
+        mensaje: r.mensaje || 'No se pudo resolver la categoria.', causa: r.codigo
+      }], revisados: 0, obligatorios: 0
+    };
+  }
+  return clValidateTaxonomyItem(clTaxBuildItem(estado || cl, r.categoryId), r.categoryId);
+}
+
+// Etiqueta corta y legible por codigo de problema.
+function clTaxEtiquetaProblema(p) {
+  var m = {
+    OBLIGATORIO_AUSENTE:     'Falta obligatorio',
+    VALOR_NO_OFICIAL:        'Valor no oficial',
+    ASPECTO_NO_ADMITIDO:     'No admitido',
+    SIZE_EN_CALZADO:         'Size en calzado',
+    US_SHOE_SIZE_EN_ROPA:    'US Shoe Size en ropa',
+    SIZE_TYPE_NO_ADMITIDO:   'Size Type no admitido',
+    DEPARTMENT_INCOMPATIBLE: 'Department incompatible',
+    CATEGORIA_INEXISTENTE:   'Categoria inexistente',
+    COMBINACION_SIN_RESOLVER:'Sin categoria',
+    SIN_TAXONOMIA:           'Taxonomia no cargada'
+  };
+  return m[p.codigo] || p.codigo;
+}
+
+// Panel de la pantalla de revision. INFORMATIVO: no bloquea la exportacion.
+// Devuelve '' con el flag apagado, asi que el HTML anterior queda intacto.
+function clTaxRenderInforme() {
+  if (!clTaxV134()) return '';
+  var r = clTaxInforme(cl);
+  if (!r) return '';
+
+  var bien  = r.ok;
+  var borde = bien ? '#2e7d32' : '#b26a00';
+  var fondo = bien ? 'rgba(46,125,50,.10)' : 'rgba(255,152,0,.10)';
+  var tinta = bien ? '#66bb6a' : '#ffa726';
+
+  var h = '<div class="card" id="cl-tax-informe" style="border-left:3px solid ' + borde
+    + ';background:' + fondo + '">'
+    + '<div class="lbl" style="color:' + tinta + '">'
+    + (bien ? '✅ TAXONOMIA eBay — SIN PROBLEMAS' : '⚠️ TAXONOMIA eBay — ' + r.problemas.length + ' PROBLEMA' + (r.problemas.length === 1 ? '' : 'S'))
+    + '</div>';
+
+  if (r.categoryId) {
+    h += '<div style="font-size:11px;color:var(--mu);margin-bottom:8px">'
+      + clTaxEsc(r.ruta) + ' · ID ' + clTaxEsc(r.categoryId)
+      + ' · ' + r.revisados + ' aspectos enviados, ' + r.obligatorios + ' obligatorios</div>';
+  }
+
+  if (bien) {
+    h += '<div style="font-size:13px;color:var(--tx)">Todos los aspectos obligatorios estan '
+      + 'completos y ningun valor esta fuera de la lista oficial de eBay.</div>';
+  } else {
+    h += '<div style="display:flex;flex-direction:column;gap:6px">';
+    for (var i = 0; i < r.problemas.length; i++) {
+      var p = r.problemas[i];
+      h += '<div style="font-size:12px;line-height:1.5;padding:8px;border-radius:6px;background:var(--sf2)">'
+        + '<span style="color:' + tinta + ';font-weight:700">' + clTaxEsc(clTaxEtiquetaProblema(p)) + '</span>'
+        + (p.aspecto ? ' · <b style="color:var(--tx)">' + clTaxEsc(p.aspecto) + '</b>' : '')
+        + '<div style="color:var(--mu);margin-top:2px">' + clTaxEsc(p.mensaje) + '</div>'
+        + (p.permitidos && p.permitidos.length
+            ? '<div style="color:var(--mu);margin-top:2px;font-size:11px">Oficiales: '
+              + clTaxEsc(p.permitidos.slice(0, 8).join(', '))
+              + (p.permitidos.length > 8 ? ' … (' + p.permitidos.length + ')' : '') + '</div>'
+            : '')
+        + '</div>';
+    }
+    h += '</div>'
+      + '<div style="font-size:11px;color:var(--mu);margin-top:8px">'
+      + 'Informe solamente. La exportacion no esta bloqueada en esta version.</div>';
+  }
+  return h + '</div>';
+}
+
 const CL_GENDER_OPTIONS = [
   { id:'mens',   label:"Men's",   icon:'👔' },
   { id:'womens', label:"Women's", icon:'👗' },
@@ -5276,7 +5409,7 @@ function clRenderReview() {
     <div class="card">
       <div class="lbl">SKU</div>
       <div class="val" style="font-family:monospace;font-size:16px;color:var(--ac)">${cl.sku}</div>
-    </div>
+    </div>${clTaxRenderInforme()}
 
     <div class="card" style="border-left:3px solid var(--ac)">
       <div class="lbl" style="color:var(--ac)">📝 eBay SEO Title</div>
