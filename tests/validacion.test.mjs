@@ -22,7 +22,14 @@ const APP = readFileSync(join(RAIZ, 'app.js'), 'utf8');
 const hash32 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 32);
 const LS = (s) => s.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
 
-const HASH_EXPORT_PASO4 = '951292f1453ebf6407a501c7d668226d';
+// PASO 5 comparaba clExportEbayCSV quitandole el bloque del desvio, contra un
+// hash congelado del PASO 4. El PASO 6 mueve la llamada a
+// clSendToRegistroSheet DENTRO del desvio (tiene que ejecutarse despues de
+// validar, no antes), asi que ya no hay forma de "separar" un bloque
+// autocontenido del resto sin cambiar el comportamiento. A partir de aqui se
+// congela la funcion COMPLETA como una sola unidad: cualquier cambio futuno
+// que no sea un nuevo paso explicitamente autorizado debe mover este hash.
+const HASH_EXPORT_PASO6 = '489c2db5336cedf3047f53d4276a5022';
 const HASH_LOCALSTORAGE = 'b077e7b0c8ba2f540a10fa8d0732e1bf';   // 82 llamadas, ordenadas
 const HASH_LS_ESCRITURAS = '1a0aaa0a0c856aaa24f9ccb5893128e7';  // 27 escrituras, ordenadas
 
@@ -506,15 +513,29 @@ describe('intocado', () => {
       assert.equal(hash32(extraerFuncion(APP, f)), esperado, `cambio en ${f}`);
   });
 
-  test('clExportEbayCSV no cambio fuera del desvio autorizado', () => {
-    const RE = /\n  \/\/ ── DESVÍO AL CSV v134[\s\S]*?\n  \}\n/;
+  test('clExportEbayCSV coincide con el hash congelado del PASO 6', () => {
     const fn = extraerFuncion(APP, 'clExportEbayCSV');
-    assert.match(fn, RE, 'no se encontro el bloque del desvio');
-    // Quitado el desvio, el cuerpo debe tener el hash exacto del PASO 4.
-    assert.equal(hash32(fn.replace(RE, '')), HASH_EXPORT_PASO4);
-    // Y el desvio no puede hacer nada mas que desviar.
-    for (const prohibido of ['localStorage', 'setItem', 'removeItem', 'splice', 'push('])
-      assert.equal(fn.match(RE)[0].includes(prohibido), false, `el desvio contiene ${prohibido}`);
+    assert.equal(hash32(fn), HASH_EXPORT_PASO6,
+      'clExportEbayCSV cambio -- si es un cambio autorizado, actualiza HASH_EXPORT_PASO6');
+  });
+
+  test('clSendToRegistroSheet se llama exactamente una vez por rama, con el lote completo', () => {
+    const fn = extraerFuncion(APP, 'clExportEbayCSV');
+    const llamadas = fn.match(/clSendToRegistroSheet\([^)]*\)/g) || [];
+    assert.equal(llamadas.length, 2, 'debe haber una llamada en la rama del flag y otra en el else');
+    for (const l of llamadas)
+      assert.equal(l, 'clSendToRegistroSheet(sess)', `${l} no usa el lote completo`);
+  });
+
+  test('el bloqueo no ejecuta ningun efecto externo mas alla de mostrar el aviso', () => {
+    const fn = extraerFuncion(APP, 'clExportEbayCSV');
+    // El tramo entre "clValidarLoteV134" y su "return" no puede contener
+    // localStorage, splice, push ni una segunda llamada a clSendToRegistroSheet.
+    const iGate = fn.indexOf('clValidarLoteV134');
+    const iReturn = fn.indexOf('return;', iGate);
+    const tramo = fn.slice(iGate, iReturn);
+    for (const prohibido of ['localStorage', 'setItem', 'removeItem', 'splice', 'push(', 'clSendToRegistroSheet', 'fetch('])
+      assert.equal(tramo.includes(prohibido), false, `el tramo de bloqueo contiene ${prohibido}`);
   });
 
   test('localStorage: la unica llamada nueva es getItem(cl_drive_url)', () => {

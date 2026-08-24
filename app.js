@@ -3685,6 +3685,95 @@ function clEntregarCsv(csv, fname, n) {
     .catch(function () { clShowExportOptions(csv, fname, n); });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 6 — BLOQUEO SEGURO DE EXPORTACION v134 (SIGUE DETRAS DEL FLAG APAGADO)
+//
+// Ninguna de estas funciones se ejecuta con el flag apagado: quedan definidas
+// pero clExportEbayCSV solo las llama dentro de `if (clTaxV134())`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Mismo rango que la guardia de precio que ya existe mas arriba en
+// clExportEbayCSV. No se introduce un segundo criterio.
+var CL_PRECIO_MIN = 0.99;
+var CL_PRECIO_MAX = 499.99;
+
+// Problemas de UNA fila de esquema 2 que impiden exportarla. Junta lo que ya
+// detecta clValidateTaxonomyItem (categoria inexistente o vacia, obligatorio
+// ausente, aspecto no admitido, valor fuera de la lista oficial, Size en
+// calzado, US Shoe Size en ropa, Size Type/Department incompatibles) con lo
+// que le corresponde a la fila y no a la categoria: condicion y precio.
+function clValidarFilaV134(fila) {
+  var problemas = [];
+
+  // Si la categoria nunca se resolvio al capturar, ese es el motivo real.
+  if (fila && fila._taxError) {
+    problemas.push({
+      codigo: fila._taxError.codigo || 'COMBINACION_SIN_RESOLVER',
+      aspecto: null,
+      mensaje: fila._taxError.mensaje || 'La categoria no se pudo resolver al capturar.'
+    });
+  }
+
+  var vt = clValidateTaxonomyItem((fila && fila.aspects) || {}, fila && fila.categoryId);
+  problemas = problemas.concat(vt.problemas);
+
+  // Condicion: solo una de las reconocidas por CL_CONDITION_IDS. Sin esto el
+  // ConditionID de la fila quedaria vacio y eBay rechazaria el listado.
+  if (!fila || !fila.condition || !CL_CONDITION_IDS[fila.condition]) {
+    problemas.push({
+      codigo: 'CONDICION_INVALIDA', aspecto: 'Condition',
+      mensaje: 'Condicion ausente o no reconocida: "' + ((fila && fila.condition) || '') + '".'
+    });
+  }
+
+  // Precio: mismo rango que la guardia de precio existente. Una fila de
+  // esquema 2 con precio malo ya se habria detenido alli, pero esto la cubre
+  // igual si llegara a saltarse por cualquier motivo.
+  var precio = clNormalizePrice(fila && fila.price);
+  if (!isFinite(precio) || precio < CL_PRECIO_MIN || precio > CL_PRECIO_MAX) {
+    problemas.push({
+      codigo: 'PRECIO_INVALIDO', aspecto: 'StartPrice',
+      mensaje: 'Precio ausente o fuera de $' + CL_PRECIO_MIN.toFixed(2) + '–$' + CL_PRECIO_MAX.toFixed(2)
+        + ': "' + ((fila && fila.price) || '') + '".'
+    });
+  }
+
+  return problemas;
+}
+
+// Valida TODAS las filas de esquema 2 de un lote. [] = el lote puede
+// exportarse. Si no, un array agrupado por SKU con TODOS los problemas de
+// cada uno -- no solo el primero que se encuentre.
+function clValidarLoteV134(filasEsquema2) {
+  var porSku = [];
+  for (var i = 0; i < filasEsquema2.length; i++) {
+    var f = filasEsquema2[i];
+    var problemas = clValidarFilaV134(f);
+    if (problemas.length) porSku.push({ sku: (f && f.sku) || '(sin SKU)', problemas: problemas });
+  }
+  return porSku;
+}
+
+// Aviso de bloqueo. No borra ni cambia nada: solo informa y deja que la
+// persona corrija en la pantalla de revision, donde el panel del PASO 4 ya
+// muestra el detalle de cada aspecto.
+function clMostrarBloqueoExport(porSku) {
+  var totalProblemas = porSku.reduce(function (a, x) { return a + x.problemas.length; }, 0);
+  var detalle = porSku.map(function (x) {
+    return '• ' + x.sku + ':\n' + x.problemas.map(function (p) {
+      return '   – ' + (p.aspecto ? p.aspecto + ': ' : '') + p.mensaje;
+    }).join('\n');
+  }).join('\n\n');
+  alert(
+    '🚫 EXPORTACION DETENIDA — ' + porSku.length + ' articulo(s) con '
+    + totalProblemas + ' problema(s) de taxonomia\n\n' + detalle +
+    '\n\nNo se genero, descargo ni subio ningun archivo. No se envio nada a la ' +
+    'hoja de registro. La sesion no se modifico.\n\n' +
+    'Corrige estos articulos en Item Info y vuelve a exportar.'
+  );
+  toast('🚫 Export detenido — ' + porSku.length + ' articulo(s) con problemas de taxonomia');
+}
+
 const CL_GENDER_OPTIONS = [
   { id:'mens',   label:"Men's",   icon:'👔' },
   { id:'womens', label:"Women's", icon:'👗' },
@@ -6714,17 +6803,36 @@ function clExportEbayCSV() {
     }
   }
 
-  // Enviar también a la hoja de registro de Google Sheets (en paralelo, no bloquea)
-  clSendToRegistroSheet(sess);
-
   // ── DESVÍO AL CSV v134 (solo con el flag encendido) ────────────────────
   // Las filas del esquema 2 salen por el generador oficial; las antiguas
   // siguen por el camino de siempre, sin tocar una sola línea de abajo.
+  //
+  // PASO 6: antes de tocar la hoja de registro, generar el CSV o subir nada
+  // a Drive, se validan TODAS las filas de esquema 2 contra la taxonomia
+  // oficial. Un solo problema en una sola fila bloquea el LOTE COMPLETO --
+  // tambien las filas antiguas del mismo lote, que no se separan para
+  // exportarse solas. No es "exporta lo bueno y avisa de lo malo": es todo
+  // o nada, porque un CSV parcial es tan facil de subir a eBay como uno
+  // completo, y nadie revisaria que falto la mitad del lote.
+  //
+  // clSendToRegistroSheet se llama UNA sola vez, con el `sess` COMPLETO (antes
+  // de separar por esquema), tanto si el flag esta encendido como apagado --
+  // igual que siempre. Solo cambia CUANDO: ahora ocurre despues de validar.
   if (clTaxV134()) {
     var _sep = clSepararPorEsquema(sess);
+    if (_sep.nuevas.length) {
+      var _erroresLote = clValidarLoteV134(_sep.nuevas);
+      if (_erroresLote.length) { clMostrarBloqueoExport(_erroresLote); return; }
+    }
+    // Validado -- o no habia nada de esquema 2 que validar. Ahora si, los
+    // efectos externos, con el lote COMPLETO, igual que antes del PASO 6.
+    clSendToRegistroSheet(sess);
     if (_sep.nuevas.length) clExportEbayCSVv134(_sep.nuevas, _sep.viejas.length);
     if (!_sep.viejas.length) return;
     sess = _sep.viejas;
+  } else {
+    // Enviar también a la hoja de registro de Google Sheets (en paralelo, no bloquea)
+    clSendToRegistroSheet(sess);
   }
 
   function q(v) {

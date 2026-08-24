@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sandbox } from './_csv.mjs';
+import { sandbox, buildDirect } from './_csv.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -27,7 +27,13 @@ const hash = (s) => createHash('sha256').update(s).digest('hex').slice(0, 32);
 const hash16 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
 
 // Cuerpo de clExportEbayCSV ANTES del desvio del PASO 5.
-const HASH_EXPORT_PASO4 = '951292f1453ebf6407a501c7d668226d';
+// PASO 5 comparaba clExportEbayCSV quitandole el bloque del desvio, contra un
+// hash del PASO 4. El PASO 6 mueve clSendToRegistroSheet DENTRO del desvio
+// (debe ejecutarse despues de validar, no antes), asi que ya no se puede
+// aislar un bloque autocontenido. Se congela la funcion COMPLETA; ver
+// tests/validacion.test.mjs para el mismo invariante, que es donde vive la
+// version canonica de esta comprobacion.
+const HASH_EXPORT_PASO6 = '489c2db5336cedf3047f53d4276a5022';
 
 // CSV antiguo del lote de referencia LOTE_VIEJO, generado por el PASO 4.
 const CSV_LEGACY_REF = 'e121a37e0d1e52d4';          // 1159 bytes
@@ -88,6 +94,14 @@ function aspectosValidos(cid) {
 const extraerFn = (s, f) => { const i = s.indexOf('function ' + f + '('); let d = 0;
   for (let k = s.indexOf('{', i); k < s.length; k++) { if (s[k]==='{') d++; else if (s[k]==='}') { d--; if (!d) return s.slice(i,k+1); } } return ''; };
 const csvDe = (sess, flagOn, app) => sandbox(app || APP, TAX, sess, flagOn, OFICIAL);
+// Salta la puerta de bloqueo del PASO 6 y llama a clBuildCsvV134 directamente.
+// Sirve para probar la garantia de BAJO NIVEL de clCsvRowV134: aunque algo
+// llamara a estas funciones sin pasar por clExportEbayCSV, no inventan un
+// solo valor. clExportEbayCSV sigue siendo la unica puerta real.
+const uno = async (cid, aspects, extra) => {
+  const r = await buildDirect(APP, TAX, [nueva(cid, aspects, extra)], OFICIAL);
+  return parse(r.csv);
+};
 const celdas = (linea) => {
   const out = []; let cur = '', q = false;
   for (let i = 0; i < linea.length; i++) {
@@ -139,12 +153,10 @@ describe('flag apagado', () => {
       assert.equal(hash(extraerFn(APP, f)), esperado, `cambio en ${f}`);
   });
 
-  test('clExportEbayCSV sin el desvio conserva su hash del PASO 4', async () => {
-    const RE = /\n  \/\/ ── DESVÍO AL CSV v134[\s\S]*?\n  \}\n/;
+  test('clExportEbayCSV coincide con el hash congelado del PASO 6', async () => {
     const fn = extraerFn(APP, 'clExportEbayCSV');
-    assert.match(fn, RE, 'no se encontro el bloque del desvio');
-    assert.equal(hash(fn.replace(RE, '')), HASH_EXPORT_PASO4,
-      'clExportEbayCSV cambio mas alla del desvio autorizado');
+    assert.equal(hash(fn), HASH_EXPORT_PASO6,
+      'clExportEbayCSV cambio -- si es un cambio autorizado, actualiza HASH_EXPORT_PASO6 aqui y en validacion.test.mjs');
   });
 });
 
@@ -197,11 +209,6 @@ describe('encabezado', () => {
 
 // ── 3. contenido de las filas ──────────────────────────────────────────────
 describe('filas v134', () => {
-  const uno = async (cid, aspects, extra) => {
-    const r = await csvDe([nueva(cid, aspects, extra)], true, APP);
-    return parse(r.capturados[0].csv);
-  };
-
   test("Women's Heels: US Shoe Size lleno, Size vacio, Upper Material y Heel Style", async () => {
     const p = await uno('55793', { 'Brand': 'Steve Madden', 'Department': 'Women', 'US Shoe Size': '8.5',
       'Color': 'Black', 'Style': 'Pump', 'Upper Material': 'Leather', 'Heel Style': 'Wedge',
@@ -296,18 +303,24 @@ describe('sin fallbacks', () => {
     assert.ok(r.avisos.some((a) => /EXPORT DETENIDO/.test(a)));
   });
 
-  test('sin condicion reconocida el ConditionID queda vacio, no 1000', async () => {
-    const p = parse((await csvDe([nueva('55793', aspectosValidos('55793'), { condition: '' })], true, APP)).capturados[0].csv);
-    assert.equal(p.filas[0]['*ConditionID'], '');
-    const p2 = parse((await csvDe([nueva('55793', aspectosValidos('55793'), { condition: 'NWOT' })], true, APP)).capturados[0].csv);
-    assert.equal(p2.filas[0]['*ConditionID'], '1500');
+  test('sin condicion reconocida el ConditionID queda vacio, no 1000 (garantia de bajo nivel)', async () => {
+    // Via buildDirect: la propia clCsvRowV134 no inventa 1000 aunque se le
+    // pase una condicion desconocida. En produccion nunca llega hasta aqui:
+    // clExportEbayCSV bloquea antes -- ver tests/bloqueo.test.mjs.
+    const r = await buildDirect(APP, TAX, [nueva('55793', aspectosValidos('55793'), { condition: '' })], OFICIAL);
+    assert.equal(parse(r.csv).filas[0]['*ConditionID'], '');
+    const r2 = await buildDirect(APP, TAX, [nueva('55793', aspectosValidos('55793'), { condition: 'NWOT' })], OFICIAL);
+    assert.equal(parse(r2.csv).filas[0]['*ConditionID'], '1500');
   });
 
-  test('no aparecen Regular, Polyester, General Fitness, Knee Length, Regular (B/M) ni 30\"', async () => {
+  test('no aparecen Regular, Polyester, General Fitness, Knee Length, Regular (B/M) ni 30\" (garantia de bajo nivel)', async () => {
+    // Via buildDirect: sin ningun aspecto capturado, clBuildCsvV134 no rellena
+    // nada. En produccion, un lote asi bloquea antes de llegar aqui -- ver
+    // tests/bloqueo.test.mjs.
     const filas = IDS.map((c) => nueva(c, {}));   // sin ningun aspecto capturado
-    const csv = (await csvDe(filas, true, APP)).capturados[0].csv;
+    const r = await buildDirect(APP, TAX, filas, OFICIAL);
     for (const inventado of ['Polyester', 'General Fitness', 'Knee Length', 'Regular (B/M)', '30"', '19.99'])
-      assert.equal(csv.includes(inventado), false, `aparecio "${inventado}"`);
+      assert.equal(r.csv.includes(inventado), false, `aparecio "${inventado}"`);
   });
 
   test('el codigo del camino v134 no contiene ningun valor de relleno', async () => {
@@ -384,13 +397,20 @@ describe('sesiones', () => {
 });
 
 // ── 6. no bloquea ──────────────────────────────────────────────────────────
-describe('no bloquea', () => {
-  test('un articulo con obligatorios ausentes se exporta igual', async () => {
+// PASO 5 llamaba a este describe 'no bloquea' porque en esa fase la
+// exportacion nunca se detenia por problemas de taxonomia. El PASO 6 cambia
+// esa politica a proposito: ver tests/bloqueo.test.mjs para la cobertura
+// completa de que y como bloquea ahora. Lo que sigue siendo cierto, y se
+// verifica aqui, es que clExportEbayCSVv134 -- la capa que arma el CSV una
+// vez que la puerta de bloqueo ya dejo pasar el lote -- no bloquea ni
+// deshabilita nada por su cuenta.
+describe('clExportEbayCSVv134 no bloquea por su cuenta', () => {
+  test('un articulo con obligatorios ausentes ahora bloquea en la puerta de entrada', async () => {
+    // Antes (PASO 5) esto se exportaba igual. El PASO 6 lo bloquea: ver
+    // tests/bloqueo.test.mjs para la prueba exhaustiva de este caso.
     const r = await csvDe([nueva('55793', { 'Brand': 'X' })], true, APP);
-    assert.equal(r.capturados.length, 1, 'debe exportar aunque falten obligatorios');
-    const p = parse(r.capturados[0].csv);
-    assert.equal(p.filas.length, 1);
-    assert.equal(p.filas[0]['*C:Brand'] ?? p.filas[0]['C:Brand'], 'X');
+    assert.equal(r.capturados.length, 0, 'ahora debe bloquear');
+    assert.ok(r.avisos.some((a) => /EXPORTACION DETENIDA/.test(a)));
   });
 
   test('la guardia de precio existente sigue intacta y sigue deteniendo', async () => {
@@ -399,7 +419,7 @@ describe('no bloquea', () => {
     assert.ok(r.avisos.some((a) => /EXPORT DETENIDO/.test(a)));
   });
 
-  test('el exportador v134 no bloquea ni deshabilita nada', async () => {
+  test('clExportEbayCSVv134 en si mismo no bloquea ni deshabilita nada', () => {
     const ex = (f) => { const i = APP.indexOf('function ' + f + '('); let d = 0;
       for (let k = APP.indexOf('{', i); k < APP.length; k++) { if (APP[k]==='{') d++; else if (APP[k]==='}') { d--; if (!d) return APP.slice(i,k+1); } } };
     const fn = ex('clExportEbayCSVv134');
@@ -440,52 +460,25 @@ describe('resolucion fallida', () => {
       'quedo el retorno que degradaba la fila al CSV antiguo');
   });
 
-  test('la fila rota entra al CSV v134, no al antiguo', async () => {
-    const r = await csvDe([rota()], true, APP);
-    assert.equal(r.capturados.length, 1);
-    assert.match(r.capturados[0].fname, /-v134\.csv$/, 'salio por el CSV antiguo');
-    assert.equal(r.avisos.length, 0, 'no es un lote mixto');
-  });
-
-  test('categoryId queda vacio y no se inventa ningun ID', async () => {
-    const p = parse((await csvDe([rota()], true, APP)).capturados[0].csv);
+  // Con el PASO 5, una fila rota entraba igual al CSV v134 con la categoria
+  // vacia: no se bloqueaba nada todavia. El PASO 6 cambia esa politica a
+  // proposito -- una fila con _taxError es precisamente uno de los motivos de
+  // bloqueo -- y tests/bloqueo.test.mjs cubre ese caso de forma exhaustiva
+  // (bloquea el lote entero, incluidas las filas viejas que lo acompanen, sin
+  // Drive, sin Sheet, sin localStorage). Lo que se comprueba aqui es la
+  // garantia de BAJO NIVEL: si algo llegara a construir el CSV sin pasar por
+  // la puerta de bloqueo, clBuildCsvV134 seguiria sin inventar nada para esta
+  // fila -- ni categoria, ni aspectos, y el SKU no desaparece en silencio.
+  test('via buildDirect: categoryId vacio, sin aspectos inventados, SKU conservado', async () => {
+    const r = await buildDirect(APP, TAX, [rota()], OFICIAL);
+    const p = parse(r.csv);
     assert.equal(p.filas.length, 1, 'la fila no puede desaparecer');
     assert.equal(p.filas[0]['*Category'], '', 'la categoria debe ir vacia');
-    for (const inventado of ['63861', '53159', '57990'])
-      assert.equal(p.filas[0]['*Category'], inventado === p.filas[0]['*Category'] ? null : p.filas[0]['*Category']);
-    const csv = (await csvDe([rota()], true, APP)).capturados[0].csv;
+    assert.ok(r.csv.includes('CL-ROTA-01'), 'el SKU debe seguir presente');
     for (const inventado of ['63861', '53159', '57990', '19.99', 'Regular (B/M)'])
-      assert.equal(csv.includes(inventado), false, `aparecio ${inventado}`);
-  });
-
-  test('sus aspectos van todos vacios, sin rellenos', async () => {
-    const p = parse((await csvDe([rota()], true, APP)).capturados[0].csv);
+      assert.equal(r.csv.includes(inventado), false, `aparecio ${inventado}`);
     const cols = p.hdr.filter((h) => h.startsWith('C:') || h.startsWith('*C:'));
     for (const c of cols) assert.equal(p.filas[0][c], '', `${c} no esta vacia`);
-  });
-
-  test('el SKU se conserva: la fila no se pierde en silencio', async () => {
-    const csv = (await csvDe([rota()], true, APP)).capturados[0].csv;
-    assert.ok(csv.includes('CL-ROTA-01'), 'la fila desaparecio del archivo');
-  });
-
-  test('mezclada con filas buenas, ambas salen en el mismo archivo v134', async () => {
-    const r = await csvDe([rota(), nueva('55793', aspectosValidos('55793'))], true, APP);
-    assert.equal(r.capturados.length, 1, 'no debe partirse: las dos son esquema 2');
-    const p = parse(r.capturados[0].csv);
-    assert.equal(p.filas.length, 2);
-    assert.equal(p.filas.find((f) => f['CustomLabel'] === 'CL-ROTA-01')['*Category'], '');
-    assert.equal(p.filas.find((f) => f['CustomLabel'] === 'N-55793')['*Category'], '55793');
-  });
-
-  test('el lote mixto separa por _esquema, no por si la categoria resolvio', async () => {
-    const r = await csvDe(LOTE_VIEJO.concat([rota()]), true, APP);
-    assert.equal(r.capturados.length, 2);
-    const v134 = r.capturados.find((c) => /-v134\.csv$/.test(c.fname));
-    const legacy = r.capturados.find((c) => !/-v134\.csv$/.test(c.fname));
-    assert.ok(v134.csv.includes('CL-ROTA-01'), 'la fila rota debe ir en el v134');
-    assert.equal(legacy.csv.includes('CL-ROTA-01'), false, 'no puede entrar al antiguo');
-    for (const f of LOTE_VIEJO) assert.ok(legacy.csv.includes(f.sku), `${f.sku} falta en el antiguo`);
   });
 
   test('el panel del PASO 4 informa el problema de esa fila', () => {
@@ -507,10 +500,12 @@ describe('ConditionID', () => {
     }
   });
 
-  test('una condicion ausente o desconocida deja la celda vacia, nunca 1000', async () => {
+  test('via buildDirect: condicion ausente o desconocida deja la celda vacia, nunca 1000', async () => {
+    // Garantia de bajo nivel de clCsvRowV134. En produccion una condicion asi
+    // ya bloquea el lote entero en clExportEbayCSV -- ver tests/bloqueo.test.mjs.
     for (const cond of ['', undefined, 'INVENTADA', 'nwt', 'New']) {
-      const p = parse((await csvDe([nueva('55793', aspectosValidos('55793'), { condition: cond })], true, APP)).capturados[0].csv);
-      assert.equal(p.filas[0]['*ConditionID'], '', JSON.stringify(cond));
+      const r = await buildDirect(APP, TAX, [nueva('55793', aspectosValidos('55793'), { condition: cond })], OFICIAL);
+      assert.equal(parse(r.csv).filas[0]['*ConditionID'], '', JSON.stringify(cond));
     }
   });
 
