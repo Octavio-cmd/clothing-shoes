@@ -2895,9 +2895,167 @@ let cl = {
   photos:{ front:null, back:null, tag:null, detail:null, meas1:null, meas2:null },
   clothingPrices: { minPrice: null, avgPrice: null, suggestedPrice: null, found: false },
   pricesLoading: false,
-  step: 1, submitting: false
+  step: 1, submitting: false,
+  // ── PASO 2, taxonomia v134 — solo se usan con el flag encendido ──────────
+  // Con CL_TAXONOMY_V134_ENABLED = false estos campos existen pero nadie los
+  // lee, y ninguna ruta de codigo existente los consulta.
+  ageGroup: '',      // 'baby' | 'kids4up'   (solo cuando gender === 'kids')
+  kidsDept: '',      // 'boys' | 'girls' | 'unisex'
+  adultBranch: ''    // 'mens' | 'womens'    (solo cuando gender === 'unisex')
 };
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 2 — TAXONOMIA OFICIAL EBAY_US v134 (DETRAS DE UN FLAG APAGADO)
+//
+// La logica pura vive en taxonomy/cl-taxonomy.js, que index.html carga ANTES
+// que este archivo. Aqui solo esta el enganche con la interfaz.
+//
+// Mientras clTaxV134() sea false:
+//   - no se carga nada,
+//   - no aparece ningun control nuevo,
+//   - las categorias siguen saliendo de CL_CATS / CL_SHOE_CATS,
+//   - el CSV, clGetEbayCategoryId y clBuildAspects quedan intactos.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function clTaxV134() {
+  return typeof ClTaxonomy !== 'undefined' && ClTaxonomy.CL_TAXONOMY_V134_ENABLED === true;
+}
+
+// Estado del bloqueo. Solo puede activarse con el flag encendido.
+var clTaxBloqueado = false;
+
+// Arranca la carga. Con el flag apagado no hace absolutamente nada.
+function clTaxonomyBoot() {
+  if (!clTaxV134()) return Promise.resolve({ ok: true, omitido: true });
+  return clLoadTaxonomy().then(function (r) {
+    if (!r.ok) {
+      clTaxBloqueado = true;
+      clTaxMostrarBloqueo(r);
+    }
+    return r;
+  });
+}
+
+// Si la taxonomia no carga, el flujo Clothing & Shoes se bloquea. NUNCA se
+// vuelve al mapa viejo en silencio: publicar en la categoria equivocada es
+// peor que no publicar.
+function clTaxMostrarBloqueo(err) {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('cl-tax-bloqueo')) return;
+  var ov = document.createElement('div');
+  ov.id = 'cl-tax-bloqueo';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    + 'padding:30px;gap:14px;text-align:center';
+  ov.innerHTML = '<div style="font-size:56px">\u26D4</div>'
+    + '<div style="color:#fff;font-size:20px;font-weight:800">Clothing &amp; Shoes no disponible</div>'
+    + '<div style="color:#ddd;font-size:14px;line-height:1.6;max-width:420px">'
+    + 'No se pudo cargar la taxonomia oficial de eBay, asi que no se puede saber '
+    + 'en que categoria va cada prenda.<br><br>'
+    + '<b>No se captura nada hasta que se arregle</b>, para no publicar en la '
+    + 'categoria equivocada.</div>'
+    + '<div style="color:#888;font-size:12px;font-family:monospace">'
+    + (err && err.codigo ? err.codigo : 'DESCONOCIDO') + ' \u00b7 '
+    + ((err && err.mensaje) || '') + '</div>';
+  document.body.appendChild(ov);
+}
+
+// ── limpieza en cascada ────────────────────────────────────────────────────
+// Al cambiar una seleccion superior, lo que colgaba de ella deja de ser valido.
+// Se limpia en vez de arrastrar una combinacion imposible.
+function clTaxSetGender(g) {
+  cl.gender = g;
+  if (g !== 'kids')   { cl.ageGroup = ''; cl.kidsDept = ''; }
+  if (g !== 'unisex') { cl.adultBranch = ''; }
+  clTaxLimpiarDependientes();
+}
+
+function clTaxSetAgeGroup(a) {
+  cl.ageGroup = a;
+  cl.kidsDept = '';
+  clTaxLimpiarDependientes();
+}
+
+function clTaxSetKidsDept(d)    { cl.kidsDept = d;    clTaxLimpiarDependientes(); }
+function clTaxSetAdultBranch(b) { cl.adultBranch = b; clTaxLimpiarDependientes(); }
+
+// La categoria y los aspectos que dependen de ella dejan de ser validos.
+// Ojo: esto solo corre con el flag encendido, asi que no altera nada hoy.
+function clTaxLimpiarDependientes() {
+  if (!clTaxV134()) return;
+  var permitidas = clTaxCategorias();
+  if (cl.category && permitidas.indexOf(cl.category) === -1) {
+    cl.category = '';
+    cl.inseam = ''; cl.dressLength = ''; cl.outerMaterial = '';
+    cl.swimStyle = ''; cl.activity = ''; cl.shoeWidth = ''; cl.style = '';
+    cl._ebayTitle = null; cl._ebayDesc = null;
+  }
+}
+
+// Seleccion actual en el vocabulario de la taxonomia.
+function clTaxSeleccion() {
+  var rama = cl.gender === 'mens' ? 'mens'
+           : cl.gender === 'womens' ? 'womens'
+           : cl.gender === 'kids' ? 'kids'
+           : cl.gender === 'unisex' ? 'unisex'
+           : '';
+  return {
+    rama: rama,
+    tipo: cl.type === 'shoes' ? 'shoes' : 'clothing',
+    prenda: cl.category,
+    ageGroup: cl.ageGroup || null,
+    kidsDept: cl.kidsDept || null,
+    adultBranch: cl.adultBranch || null
+  };
+}
+
+// Categorias ofrecibles. Con el flag apagado devuelve EXACTAMENTE las listas
+// de siempre, asi que la interfaz no cambia ni un chip.
+function clTaxCategorias() {
+  if (!clTaxV134()) return cl.type === 'shoes' ? CL_SHOE_CATS : CL_CATS;
+  return clCategoriesFor(clTaxSeleccion());
+}
+
+// Resolucion. Devuelve el objeto de error tal cual; no inventa un ID.
+function clTaxResolver() {
+  if (!clTaxV134()) return { ok: false, codigo: 'FLAG_APAGADO', mensaje: 'La taxonomia v134 esta desactivada.' };
+  return clResolveLeaf(clTaxSeleccion());
+}
+
+// ── interfaz minima, solo con el flag encendido ────────────────────────────
+// Devuelve '' con el flag apagado, de modo que clRenderSKU inserta cadena
+// vacia y el HTML queda byte a byte como antes.
+function clTaxRenderSelectores() {
+  if (!clTaxV134()) return '';
+  var h = '';
+  var chip = function (activo, onclick, texto) {
+    return '<button class="cl-cond-btn' + (activo ? ' sel' : '') + '" onclick="' + onclick
+      + '" style="flex:1;min-width:64px;padding:14px 8px">' + texto + '</button>';
+  };
+  if (cl.gender === 'kids') {
+    h += '<div class="lbl" style="margin-top:14px">GRUPO DE EDAD</div><div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + chip(cl.ageGroup === 'baby',    "clTaxSetAgeGroup('baby');clRenderSKU()",    '\uD83C\uDF7C Baby &amp; Toddler')
+      + chip(cl.ageGroup === 'kids4up', "clTaxSetAgeGroup('kids4up');clRenderSKU()", '\uD83E\uDDD2 Sizes 4 &amp; Up')
+      + '</div>';
+    if (cl.ageGroup === 'baby' || cl.ageGroup === 'kids4up') {
+      var unisexTxt = cl.ageGroup === 'baby' ? 'Unisex Baby &amp; Toddler' : 'Unisex Kids';
+      h += '<div class="lbl" style="margin-top:14px">DEPARTAMENTO</div><div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + chip(cl.kidsDept === 'boys',   "clTaxSetKidsDept('boys');clRenderSKU()",   'Boys')
+        + chip(cl.kidsDept === 'girls',  "clTaxSetKidsDept('girls');clRenderSKU()",  'Girls')
+        + chip(cl.kidsDept === 'unisex', "clTaxSetKidsDept('unisex');clRenderSKU()", unisexTxt)
+        + '</div>';
+    }
+  } else if (cl.gender === 'unisex') {
+    // eBay no tiene categorias unisex de adulto: hay que elegir la rama base.
+    h += '<div class="lbl" style="margin-top:14px">RAMA BASE (eBay no tiene categoria unisex de adulto)</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + chip(cl.adultBranch === 'mens',   "clTaxSetAdultBranch('mens');clRenderSKU()",   "\uD83D\uDC54 Men's")
+      + chip(cl.adultBranch === 'womens', "clTaxSetAdultBranch('womens');clRenderSKU()", "\uD83D\uDC57 Women's")
+      + '</div>';
+  }
+  return h;
+}
 
 const CL_GENDER_OPTIONS = [
   { id:'mens',   label:"Men's",   icon:'👔' },
@@ -3265,7 +3423,7 @@ function clRenderSKU() {
     <div class="cl-sect" style="margin-top:16px">
       <div class="lbl">ITEM TYPE</div>
       <div style="display:flex;gap:10px;margin-top:8px">
-        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" onclick="cl.type='${t.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;padding:16px 8px">
+        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" onclick="${clTaxV134()?`cl.type='${t.id}';clTaxLimpiarDependientes();clRenderSKU()`:`cl.type='${t.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')`}" style="flex:1;padding:16px 8px">
           <div style="font-size:26px;margin-bottom:5px">${t.icon}</div>
           <div class="cond-lbl" style="font-size:13px">${t.label}</div>
         </button>`).join('')}
@@ -3275,11 +3433,12 @@ function clRenderSKU() {
     <div class="cl-sect" style="margin-top:12px">
       <div class="lbl">GENDER</div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        ${CL_GENDER_OPTIONS.map(g=>`<button class="cl-cond-btn${cl.gender===g.id?' sel':''}" onclick="cl.gender='${g.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;min-width:60px;padding:14px 8px">
+        ${CL_GENDER_OPTIONS.map(g=>`<button class="cl-cond-btn${cl.gender===g.id?' sel':''}" onclick="${clTaxV134()?`clTaxSetGender('${g.id}');clRenderSKU()`:`cl.gender='${g.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')`}" style="flex:1;min-width:60px;padding:14px 8px">
           <div style="font-size:22px;margin-bottom:4px">${g.icon}</div>
           <div class="cond-lbl" style="font-size:12px">${g.label}</div>
         </button>`).join('')}
       </div>
+      ${clTaxRenderSelectores()}
     </div>
     <button class="add-btn" onclick="clStep1Next()">Continue →</button>`;
   clAutoSKU();
@@ -3850,7 +4009,7 @@ function clRenderAttr() {
     <div class="cl-sect">
       <div class="lbl">CATEGORY</div>
       <div class="cl-chips" id="cat-chips">
-        ${(cl.type==='shoes'?CL_SHOE_CATS:CL_CATS).map(c=>`<button class="cl-chip${cl.category===c?' sel':''}" onclick="clSetCat('${c}')">${c}</button>`).join('')}
+        ${clTaxCategorias().map(c=>`<button class="cl-chip${cl.category===c?' sel':''}" onclick="clSetCat('${c}')">${c}</button>`).join('')}
       </div>
     </div>
 
