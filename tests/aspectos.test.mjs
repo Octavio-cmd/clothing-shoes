@@ -389,8 +389,13 @@ describe('flag apagado', () => {
       assert.ok(html.includes(id), `falta ${id}`);
   });
 
-  test('clTaxonomyBoot sigue sin conectarse al arranque', () => {
-    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 1, 'solo la definicion');
+  // PASO 7 (preparacion): clTaxonomyBoot() ya esta conectado (dentro de
+  // clArrancarCaptura, detras de una comprobacion de sesion valida), pero el
+  // flag sigue en false, asi que clTaxonomyBoot() no hace fetch ni cambia el
+  // comportamiento actual. La cuenta pasa de 1 (solo la definicion) a 2 (la
+  // definicion + el unico punto de invocacion real).
+  test('clTaxonomyBoot esta conectado en un unico punto (mas su definicion)', () => {
+    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 2, 'definicion + una sola invocacion real');
   });
 
   test('el flag sigue en false en el fuente', () => {

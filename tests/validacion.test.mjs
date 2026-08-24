@@ -494,8 +494,10 @@ describe('flag apagado', () => {
       assert.equal(fn.includes(prohibido), false, `el panel toca ${prohibido}`);
   });
 
-  test('clTaxonomyBoot sigue sin conectarse', () => {
-    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 1);
+  // PASO 7 (preparacion): clTaxonomyBoot() esta conectado en clArrancarCaptura,
+  // pero el flag sigue en false — clTaxonomyBoot() no hace fetch ni cambia nada.
+  test('clTaxonomyBoot conectado en un unico punto', () => {
+    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 2);
   });
 
   test('el flag sigue en false', () => {
@@ -538,17 +540,26 @@ describe('intocado', () => {
       assert.equal(tramo.includes(prohibido), false, `el tramo de bloqueo contiene ${prohibido}`);
   });
 
-  test('localStorage: la unica llamada nueva es getItem(cl_drive_url)', () => {
+  // PASO 7 (preparacion) agrega UNA lectura mas: localStorage.getItem('cl_ebay_session')
+  // dentro de clPreviewCsvV134 (la vista previa lee la sesion, igual que ya
+  // hace clExportEbayCSV, pero nunca escribe). Se excluyen las DOS lecturas
+  // ya autorizadas (la de PASO 6 y esta) y se compara el resto contra el
+  // mismo hash congelado de siempre, para probar que nada distinto cambio.
+  test('localStorage: las unicas llamadas nuevas son getItem(cl_drive_url) y getItem(cl_ebay_session) de la vista previa', () => {
     const llamadas = LS(APP);
-    assert.equal(llamadas.length, 83, 'el numero total de llamadas cambio');
+    assert.equal(llamadas.length, 84, 'el numero total de llamadas cambio');
     // Se compara como multiconjunto ordenado, no por posicion: el orden textual
     // depende de donde este definida cada funcion en el archivo, y eso no forma
     // parte del invariante. Lo que importa es QUE llamadas hay y cuantas.
-    const i = llamadas.indexOf("localStorage.getItem('cl_drive_url')");
-    assert.ok(i >= 0, 'no aparece la lectura nueva');
-    const sinLaNueva = llamadas.slice(0, i).concat(llamadas.slice(i + 1)).sort();
-    assert.equal(hash32(JSON.stringify(sinLaNueva)), HASH_LOCALSTORAGE,
-      'cambio alguna llamada distinta de la lectura autorizada');
+    const restantes = llamadas.slice();
+    const iDrive = restantes.indexOf("localStorage.getItem('cl_drive_url')");
+    assert.ok(iDrive >= 0, 'no aparece la lectura de cl_drive_url (PASO 6)');
+    restantes.splice(iDrive, 1);
+    const iPreview = restantes.indexOf("localStorage.getItem('cl_ebay_session')");
+    assert.ok(iPreview >= 0, 'no aparece la lectura nueva de la vista previa v134');
+    restantes.splice(iPreview, 1);
+    assert.equal(hash32(JSON.stringify(restantes.sort())), HASH_LOCALSTORAGE,
+      'cambio alguna llamada distinta de las dos lecturas autorizadas');
   });
 
   test('no se anadio ningun setItem, removeItem ni clear', () => {

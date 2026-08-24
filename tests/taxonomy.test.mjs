@@ -114,6 +114,97 @@ describe('clLoadTaxonomy', () => {
   });
 });
 
+// ── 2b. carrera entre intentos (PASO 7 — correccion) ────────────────────────
+// Un timeout de interfaz (como el de clTaxonomyBoot) puede dejar de esperar
+// un fetch sin cancelarlo de verdad: ese fetch sigue vivo y puede responder
+// mas tarde, despues de que el usuario ya reintento. La respuesta tardia de
+// un intento vencido NUNCA debe poder pisar el estado de un intento mas
+// nuevo -- ni con exito ni con error.
+describe('carrera entre intentos', () => {
+  function diferido() {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  test('intento 1 tarda y vence; intento 2 arranca y tiene exito; la respuesta tardia del intento 1 no pisa el resultado', async () => {
+    T.clTaxonomyReset();
+    const d1 = diferido();
+    const datos1 = Object.assign(copia(), { _marcaDeIntento: 'intento-1-viejo' });
+    const p1 = T.clLoadTaxonomy({ fetch: () => d1.promise, forzar: true });   // intento 1, en vuelo
+
+    // El intento 1 "vence" desde el punto de vista de quien lo llamo (por
+    // ejemplo, el timeout de clTaxonomyBoot) -- pero su fetch real sigue
+    // vivo (d1 todavia no se resolvio). El usuario reintenta:
+    T.clTaxonomyReset();
+    const d2 = diferido();
+    const datos2 = Object.assign(copia(), { _marcaDeIntento: 'intento-2-nuevo' });
+    const p2 = T.clLoadTaxonomy({ fetch: () => d2.promise, forzar: true });   // intento 2, en vuelo
+
+    // El intento 2 responde y tiene exito.
+    d2.resolve({ ok: true, json: async () => datos2 });
+    const r2 = await p2;
+    assert.equal(r2.ok, true);
+    assert.equal(T.clTaxonomyReady(), true);
+    assert.equal(T.clTaxonomyData()._marcaDeIntento, 'intento-2-nuevo');
+
+    // AHORA, tarde, llega la respuesta del intento 1 (viejo, vencido).
+    d1.resolve({ ok: true, json: async () => datos1 });
+    const r1 = await p1;
+    assert.equal(r1.ok, true, 'igual resuelve para quien seguia esperandolo directamente');
+
+    // El estado del modulo sigue siendo EXCLUSIVAMENTE el del intento 2.
+    assert.equal(T.clTaxonomyReady(), true);
+    assert.equal(T.clTaxonomyError(), null);
+    assert.equal(T.clTaxonomyData()._marcaDeIntento, 'intento-2-nuevo',
+      'la respuesta tardia del intento 1 no debe haber pisado los datos del intento 2');
+  });
+
+  test('lo mismo si el intento viejo termina con error: no borra el exito del intento nuevo', async () => {
+    T.clTaxonomyReset();
+    const d1 = diferido();
+    const p1 = T.clLoadTaxonomy({ fetch: () => d1.promise, forzar: true });   // intento 1, en vuelo
+
+    T.clTaxonomyReset();
+    const d2 = diferido();
+    const datos2 = Object.assign(copia(), { _marcaDeIntento: 'intento-2-nuevo' });
+    const p2 = T.clLoadTaxonomy({ fetch: () => d2.promise, forzar: true });   // intento 2, en vuelo
+
+    d2.resolve({ ok: true, json: async () => datos2 });
+    const r2 = await p2;
+    assert.equal(r2.ok, true);
+    assert.equal(T.clTaxonomyReady(), true);
+
+    // El intento 1, tarde, termina con un 404 -- no con exito.
+    d1.resolve({ ok: false, status: 404 });
+    const r1 = await p1;
+    assert.equal(r1.ok, false, 'igual resuelve como fallo para quien seguia esperandolo directamente');
+
+    // El estado del modulo NO debe volverse error: sigue siendo el exito
+    // del intento 2, intacto.
+    assert.equal(T.clTaxonomyReady(), true, 'el 404 tardio del intento 1 no debe borrar el exito del intento 2');
+    assert.equal(T.clTaxonomyError(), null);
+    assert.equal(T.clTaxonomyData()._marcaDeIntento, 'intento-2-nuevo');
+  });
+
+  test('clTaxonomyReset() por si solo invalida cualquier intento en vuelo, aunque no exista un intento nuevo todavia', async () => {
+    T.clTaxonomyReset();
+    const d1 = diferido();
+    const p1 = T.clLoadTaxonomy({ fetch: () => d1.promise, forzar: true });
+
+    T.clTaxonomyReset();   // se invalida el intento en vuelo, sin arrancar otro
+
+    d1.resolve({ ok: true, json: async () => copia() });
+    await p1;
+
+    // El reset gano: el intento 1, aunque termine bien, no debe dejar la
+    // taxonomia como lista -- clTaxonomyReset() no arranco ningun intento
+    // nuevo, asi que el estado correcto es "sin cargar".
+    assert.equal(T.clTaxonomyReady(), false);
+    assert.equal(T.clTaxonomyData(), null);
+  });
+});
+
 // ── 3. resolucion: las 109 combinaciones ───────────────────────────────────
 describe('clResolveLeaf', () => {
   test('sin taxonomia cargada devuelve error, no un ID', () => {

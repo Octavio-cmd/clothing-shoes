@@ -16,7 +16,11 @@
   // Mientras esto sea false, nada de este archivo cambia el comportamiento.
   var CL_TAXONOMY_V134_ENABLED = false;
 
-  var RUTA    = 'taxonomy/ebay-us-v134.json';
+  // PASO 7 (preparacion): version explicita en la URL para que Safari en iOS
+  // no seleccione una copia cacheada del JSON aunque el archivo cambie en el
+  // hosting. Subir este numero cada vez que cambie el contenido del derivado
+  // (igual que ya se hace con los query strings de los <script> en index.html).
+  var RUTA    = 'taxonomy/ebay-us-v134.json?v=134-1';
   var ESQUEMA = 1;
   var MARKET  = 'EBAY_US';
   var ARBOL   = '0';
@@ -31,6 +35,14 @@
   var _datos   = null;   // el derivado ya validado
   var _promesa = null;   // carga en vuelo o terminada
   var _error   = null;   // motivo del ultimo fallo
+
+  // PASO 7 (correccion): identidad de cada intento. Un intento viejo que
+  // sigue vivo (por ejemplo, porque el llamador ya dejo de esperarlo tras un
+  // timeout de interfaz) NUNCA debe poder escribir _datos/_error si para
+  // cuando responde ya hay un intento mas nuevo en curso. clTaxonomyReset()
+  // tambien la avanza, para invalidar cualquier intento anterior de inmediato,
+  // incluso antes de que exista un intento nuevo que lo reemplace.
+  var _generacion = 0;
 
   // ── error estructurado ────────────────────────────────────────────────────
   // Nunca se devuelve un category ID por defecto. Quien llame decide que hacer,
@@ -102,6 +114,13 @@
       return _promesa;
     }
 
+    // Este intento es dueño exclusivo de esta generacion. Si para cuando
+    // responde ya no es la generacion vigente (porque clTaxonomyReset() o
+    // otra llamada a clLoadTaxonomy() la adelantaron), su resultado se
+    // devuelve igual a quien lo llamo, pero NO se escribe en _datos/_error:
+    // el estado del modulo queda exclusivamente en manos del intento vigente.
+    var miGeneracion = ++_generacion;
+
     _promesa = Promise.resolve()
       .then(function () { return traer(ruta); })
       .then(function (r) {
@@ -113,14 +132,13 @@
       .then(function (d) {
         var v = clTaxonomyValidate(d);
         if (!v.ok) throw v;
-        _datos = d;
-        _error = null;
+        if (miGeneracion === _generacion) { _datos = d; _error = null; }
         return { ok: true, categorias: v.categorias, combinaciones: v.combinaciones };
       })
       .catch(function (e) {
-        _datos = null;
-        _error = (e && e.codigo) ? e : fallo('EXCEPCION', String((e && e.message) || e));
-        return _error;
+        var errObj = (e && e.codigo) ? e : fallo('EXCEPCION', String((e && e.message) || e));
+        if (miGeneracion === _generacion) { _datos = null; _error = errObj; }
+        return errObj;
       });
 
     return _promesa;
@@ -129,7 +147,7 @@
   function clTaxonomyReady()  { return _datos !== null; }
   function clTaxonomyError()  { return _error; }
   function clTaxonomyData()   { return _datos; }
-  function clTaxonomyReset()  { _datos = null; _promesa = null; _error = null; }
+  function clTaxonomyReset()  { _datos = null; _promesa = null; _error = null; _generacion++; }
 
   // ── resolucion ────────────────────────────────────────────────────────────
   // Unica via para obtener un category ID. Solo mira `seleccion`. Si la

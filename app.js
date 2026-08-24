@@ -19,7 +19,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
 // Pages ya tenga el nuevo. Confirma esta línea en la consola de debug antes de
 // dar por buena cualquier prueba.
-window.CL_BUILD = '2026-08-17a';
+window.CL_BUILD = '2026-08-24a';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
@@ -141,6 +141,8 @@ async function doLogin() {
         if (hdrUser) hdrUser.textContent = '👤 ' + (d.usuario || user);
         document.getElementById('login-pass').value='';
         if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+        // PASO 7 (preparacion): login recien exitoso — arranca taxonomia + render.
+        if (typeof clArrancarCaptura === 'function') clArrancarCaptura();
         return;
       }
     } else if (r.status === 429) {
@@ -2641,6 +2643,7 @@ function clShowSession() {
       <div style="font-size:16px;font-weight:800;margin-bottom:4px">📦 Clothing Session</div>
       <div style="font-size:13px;color:var(--mu);margin-bottom:12px">${ebayCount} item(s) ready</div>
       <button onclick="clPreviewSession()" style="width:100%;background:none;border:1px solid #555;border-radius:8px;padding:8px;color:var(--mu);font-size:12px;cursor:pointer;margin-bottom:10px">🔍 Preview CSV content (debug)</button>
+      ${clTaxV134() ? '<button onclick="clPreviewCsvV134()" style="width:100%;background:none;border:1px solid #555;border-radius:8px;padding:8px;color:var(--mu);font-size:12px;cursor:pointer;margin-bottom:10px">🧪 Preview v134 CSV (no envia nada)</button>' : ''}
       <div id="cl-url-check" style="background:var(--sf2);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--mu)">⏳ Checking photo URLs...</div>
 
       <button onclick="this.closest('div[style]').remove();setTimeout(clExportEbayCSV,50)" style="width:100%;background:var(--sv);border:none;border-radius:12px;padding:15px;color:#000;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">
@@ -2928,10 +2931,27 @@ function clTaxV134() {
 // Estado del bloqueo. Solo puede activarse con el flag encendido.
 var clTaxBloqueado = false;
 
+// PASO 7 (preparacion): tiempo razonable de espera antes de avisar que la
+// carga no responde. No cancela el fetch (no hay AbortController): solo dejar
+// de esperarlo para la interfaz. Si la respuesta llega tarde, clLoadTaxonomy
+// igual guarda el resultado para el siguiente intento.
+var CL_TAX_BOOT_TIMEOUT_MS = 15000;
+
 // Arranca la carga. Con el flag apagado no hace absolutamente nada.
 function clTaxonomyBoot() {
   if (!clTaxV134()) return Promise.resolve({ ok: true, omitido: true });
-  return clLoadTaxonomy().then(function (r) {
+  var idTimer;
+  var expiro = new Promise(function (resolve) {
+    idTimer = setTimeout(function () {
+      resolve({ ok: false, codigo: 'TIMEOUT',
+        mensaje: 'La taxonomia tardo mas de ' + (CL_TAX_BOOT_TIMEOUT_MS / 1000) + 's en responder.' });
+    }, CL_TAX_BOOT_TIMEOUT_MS);
+  });
+  return Promise.race([clLoadTaxonomy(), expiro]).then(function (r) {
+    // Si la carga gano la carrera, el timer sigue vivo esperando su turno:
+    // se limpia aqui para que no dispare de mas (y para no dejarlo pendiente
+    // si el usuario ya reintento y esta en otra generacion de la carga).
+    clearTimeout(idTimer);
     if (!r.ok) {
       clTaxBloqueado = true;
       clTaxMostrarBloqueo(r);
@@ -2960,8 +2980,82 @@ function clTaxMostrarBloqueo(err) {
     + 'categoria equivocada.</div>'
     + '<div style="color:#888;font-size:12px;font-family:monospace">'
     + (err && err.codigo ? err.codigo : 'DESCONOCIDO') + ' \u00b7 '
-    + ((err && err.mensaje) || '') + '</div>';
+    + ((err && err.mensaje) || '') + '</div>'
+    + '<button onclick="clTaxReintentar()" style="background:var(--ac,#f0a500);border:none;'
+    + 'border-radius:12px;padding:14px 28px;color:#000;font-weight:800;font-size:15px;'
+    + 'cursor:pointer;margin-top:6px">\u21bb Reintentar</button>';
   document.body.appendChild(ov);
+}
+
+// Reintento manual desde el overlay de bloqueo. Limpia el estado guardado
+// (clTaxonomyReset) para que la siguiente llamada al arranque dispare un
+// fetch nuevo de verdad, en vez de reutilizar la promesa fallida anterior.
+function clTaxReintentar() {
+  var ov = document.getElementById('cl-tax-bloqueo');
+  if (ov) ov.remove();
+  if (typeof clTaxonomyReset === 'function') clTaxonomyReset();
+  clTaxBloqueado = false;
+  _clArranqueIniciado = false;
+  clArrancarCaptura();
+}
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// PASO 7 (preparacion) \u2014 ARRANQUE COORDINADO: autenticacion -> taxonomia -> render
+//
+// Unico punto que decide cuando es seguro renderizar el paso 1 de captura.
+// Con el flag apagado, el arranque resuelve de inmediato (sin fetch, sin
+// pantalla de carga) y este flujo se comporta exactamente igual que el
+// arranque de antes del PASO 7: se renderiza en cuanto hay sesion valida, sin
+// demora perceptible. Con el flag encendido, ademas espera la taxonomia y
+// bloquea el render (y por lo tanto la captura) hasta que este lista o falle.
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+var _clArranqueIniciado = false;
+
+function clUsuarioAutenticado() {
+  var u = null;
+  try { u = sessionStorage.getItem('savvy_session_user'); } catch (e) {}
+  return !!(u && savvyToken());
+}
+
+// Llamar despues de: (a) window.load si ya habia sesion valida, o
+// (b) un login exitoso. Sin sesion valida no toca la taxonomia ni el render
+// \u2014 la pantalla de login queda siempre accesible, nunca tapada por un error
+// de taxonomia. El guardia _clArranqueIniciado evita dobles cargas y dobles
+// renders si algo la invoca mas de una vez en la misma pagina.
+function clArrancarCaptura() {
+  if (_clArranqueIniciado) return;
+  if (!clUsuarioAutenticado()) return;
+  _clArranqueIniciado = true;
+
+  var conCarga = clTaxV134();          // con el flag apagado no hay fetch que esperar
+  if (conCarga) clTaxMostrarCargando();
+
+  clTaxonomyBoot().then(function (r) {
+    if (conCarga) clTaxOcultarCargando();
+    if (!r.ok) { _clArranqueIniciado = false; return; }   // deja reintentar
+    if (typeof clRenderSKU === 'function') clRenderSKU();
+    if (typeof clUpdateClFAB === 'function') clUpdateClFAB();
+  });
+}
+
+function clTaxMostrarCargando() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('cl-tax-cargando')) return;
+  var ov = document.createElement('div');
+  ov.id = 'cl-tax-cargando';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    + 'padding:30px;gap:14px;text-align:center';
+  ov.innerHTML = '<div class="sp"></div>'
+    + '<div style="color:#fff;font-size:16px;font-weight:800">Cargando categorias de eBay\u2026</div>';
+  document.body.appendChild(ov);
+}
+
+function clTaxOcultarCargando() {
+  if (typeof document === 'undefined') return;
+  var ov = document.getElementById('cl-tax-cargando');
+  if (ov) ov.remove();
 }
 
 // ── limpieza en cascada ────────────────────────────────────────────────────
@@ -3772,6 +3866,85 @@ function clMostrarBloqueoExport(porSku) {
     'Corrige estos articulos en Item Info y vuelve a exportar.'
   );
   toast('🚫 Export detenido — ' + porSku.length + ' articulo(s) con problemas de taxonomia');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 7 (preparacion) — VISTA PREVIA LOCAL DEL CSV v134 (SOLO DIAGNOSTICO)
+//
+// Reutiliza clBuildCsvV134 tal cual — la misma funcion que usa la exportacion
+// real — y el mismo bloqueo de validacion del PASO 6 (clValidarLoteV134 +
+// clMostrarBloqueoExport), para que "valido" signifique exactamente lo mismo
+// aqui que al exportar de verdad. A proposito NO llama a clEntregarCsv (esa
+// SIEMPRE intenta subir a Drive si hay cl_drive_url, y por defecto siempre lo
+// hay — ver index.html): esta vista previa entrega el CSV con
+// clPreviewDescargarCsv, una entrega LOCAL dedicada (revisar, copiar,
+// descargar .csv) — cero fetch, cero Drive, cero clSendToRegistroSheet, cero
+// localStorage.setItem/removeItem/clear.
+// ═══════════════════════════════════════════════════════════════════════════
+function clPreviewCsvV134() {
+  if (!clTaxV134()) return;   // solo existe con el flag encendido
+  var sess = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
+  var sep = clSepararPorEsquema(sess);
+  if (!sep.nuevas.length) { toast('No hay articulos v134 en la sesion'); return; }
+
+  var errores = clValidarLoteV134(sep.nuevas);
+  if (errores.length) { clMostrarBloqueoExport(errores); return; }   // mismo bloqueo del PASO 6
+
+  var out = clBuildCsvV134(sep.nuevas);   // la funcion real, no una copia
+  clPreviewDescargarCsv(out.csv, clCsvNombre(sep.nuevas.length, 'PREVIEW-v134'), sep.nuevas.length);
+  return out;
+}
+
+// Entrega LOCAL de la vista previa: revisar en pantalla, copiar al
+// portapapeles, o descargar como archivo .csv de verdad via Blob +
+// URL.createObjectURL. Deliberadamente NO reutiliza clShowExportOptions —
+// esa funcion tambien la usa el camino de exportacion real y el legado (ver
+// clEntregarCsv y la exportacion antigua), y tocarla cambiaria produccion.
+// Esta es exclusiva de la vista previa: no hace fetch, no toca Drive, no
+// toca la hoja de registro, no toca localStorage.
+function clPreviewDescargarCsv(csv, fname, n) {
+  if (typeof document === 'undefined') return;
+  var old = document.getElementById('cl-preview-csv-overlay');
+  if (old) old.remove();
+
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var safeCSV = csv.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  var ov = document.createElement('div');
+  ov.id = 'cl-preview-csv-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;'
+    + 'display:flex;flex-direction:column;padding:20px;gap:12px;overflow-y:auto;'
+    + '-webkit-overflow-scrolling:touch';
+  ov.innerHTML = '<div style="color:#fff;font-size:18px;font-weight:800">🧪 ' + n + ' articulo(s) — vista previa v134</div>'
+    + '<div style="color:#aaa;font-size:12px">' + fname + ' · no se envio ni se subio nada</div>'
+    + '<a id="cl-preview-download-link" href="' + url + '" download="' + fname + '" '
+    + 'style="display:block;background:var(--sv,#2ecc71);border-radius:12px;padding:16px;color:#000;'
+    + 'font-weight:800;font-size:15px;text-align:center;text-decoration:none">⬇️ Descargar .csv</a>'
+    + '<button id="cl-preview-copy-btn" style="background:#f0a500;border:none;border-radius:12px;'
+    + 'padding:16px;color:#000;font-weight:800;font-size:15px;cursor:pointer;width:100%">'
+    + '📋 Copiar al portapapeles</button>'
+    + '<div style="color:#888;font-size:11px">Revisa el contenido antes de exportar de verdad:</div>'
+    + '<textarea id="cl-preview-csv-ta" readonly style="background:#111;color:#0f0;font-family:monospace;'
+    + 'font-size:9px;border-radius:8px;padding:10px;min-height:120px;border:1px solid #333;resize:vertical">'
+    + safeCSV + '</textarea>'
+    + '<button id="cl-preview-close-btn" style="background:none;border:1px solid #555;border-radius:10px;'
+    + 'padding:12px;color:#888;cursor:pointer;font-size:14px">✕ Cerrar</button>';
+  document.body.appendChild(ov);
+
+  var copyBtn = document.getElementById('cl-preview-copy-btn');
+  if (copyBtn) copyBtn.onclick = function () {
+    var ta = document.getElementById('cl-preview-csv-ta');
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(csv).then(function () { toast('✅ Copiado!'); })
+        .catch(function () { if (ta) { ta.select(); document.execCommand('copy'); toast('✅ Copiado!'); } });
+    } else if (ta) { ta.select(); document.execCommand('copy'); toast('✅ Copiado!'); }
+  };
+  var closeBtn = document.getElementById('cl-preview-close-btn');
+  if (closeBtn) closeBtn.onclick = function () {
+    URL.revokeObjectURL(url);
+    ov.remove();
+  };
 }
 
 const CL_GENDER_OPTIONS = [

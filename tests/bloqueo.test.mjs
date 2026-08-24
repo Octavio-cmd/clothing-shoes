@@ -371,9 +371,11 @@ describe('validacion pura', () => {
     assert.match(APP, /var CL_PRECIO_MAX = 499\.99;/);
   });
 
-  test('el flag sigue en false y clTaxonomyBoot sin invocarse', () => {
+  // PASO 7 (preparacion): clTaxonomyBoot() esta conectado en clArrancarCaptura,
+  // pero el flag sigue en false — clTaxonomyBoot() no hace fetch ni cambia nada.
+  test('el flag sigue en false y clTaxonomyBoot conectado en un unico punto', () => {
     assert.match(TAX, /var CL_TAXONOMY_V134_ENABLED = false;/);
     assert.equal(/CL_TAXONOMY_V134_ENABLED\s*=\s*true/.test(APP), false);
-    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 1);
+    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 2);
   });
 });

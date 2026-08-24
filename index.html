@@ -724,8 +724,8 @@
 <!-- Taxonomia oficial eBay US v134. Se carga ANTES que app.js.
      Detras del flag CL_TAXONOMY_V134_ENABLED, hoy apagado: define
      funciones y nada mas. No cambia ningun comportamiento actual. -->
-<script src="taxonomy/cl-taxonomy.js?v=20260824-01"></script>
-<script src="app.js?v=20260708-06"></script>
+<script src="taxonomy/cl-taxonomy.js?v=20260824-02"></script>
+<script src="app.js?v=20260824-02"></script>
 
 <!-- LOCATION SCANNER OVERLAY -->
 <div class="loc-overlay" id="loc-overlay">
@@ -1316,10 +1316,14 @@ console.log('✅ Algopix integration loaded');
 console.log('✅ Pack Generator v4 loaded - Show image before confirming');
 </script>
 <script>
-// Auto-render clothing form on startup
+// Auto-render clothing form on startup.
+// PASO 7 (preparacion): ya no renderiza directo — pasa por clArrancarCaptura(),
+// que solo renderiza si ya hay sesion valida (si no, la deja para el login
+// exitoso) y, con el flag v134 encendido, espera clTaxonomyBoot() antes de
+// renderizar. Con el flag apagado (como sigue hoy) esto resuelve de inmediato
+// y el resultado visible es identico al de antes de este cambio.
 window.addEventListener('load', function() {
-  if (typeof clRenderSKU === 'function') clRenderSKU();
-  if (typeof clUpdateClFAB === 'function') clUpdateClFAB();
+  if (typeof clArrancarCaptura === 'function') clArrancarCaptura();
 });
 </script>
 </body>

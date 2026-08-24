@@ -430,10 +430,12 @@ describe('clExportEbayCSVv134 no bloquea por su cuenta', () => {
 
 // ── 7. flag y arranque ─────────────────────────────────────────────────────
 describe('flag', () => {
-  test('sigue en false y clTaxonomyBoot sin invocarse', async () => {
+  // PASO 7 (preparacion): clTaxonomyBoot() esta conectado en clArrancarCaptura,
+  // pero el flag sigue en false — clTaxonomyBoot() no hace fetch ni cambia nada.
+  test('sigue en false y clTaxonomyBoot conectado en un unico punto', async () => {
     assert.match(TAX, /var CL_TAXONOMY_V134_ENABLED = false;/);
     assert.equal(/CL_TAXONOMY_V134_ENABLED\s*=\s*true/.test(APP), false);
-    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 1);
+    assert.equal((APP.match(/clTaxonomyBoot\(\)/g) || []).length, 2);
   });
 });
 
