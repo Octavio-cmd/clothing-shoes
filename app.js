@@ -2901,7 +2901,10 @@ let cl = {
   // lee, y ninguna ruta de codigo existente los consulta.
   ageGroup: '',      // 'baby' | 'kids4up'   (solo cuando gender === 'kids')
   kidsDept: '',      // 'boys' | 'girls' | 'unisex'
-  adultBranch: ''    // 'mens' | 'womens'    (solo cuando gender === 'unisex')
+  adultBranch: '',   // 'mens' | 'womens'    (solo cuando gender === 'unisex')
+  // Aspectos oficiales, con los nombres EXACTOS de eBay como clave:
+  // { 'Size Type': 'Regular', 'Heel Style': 'Wedge', ... }
+  aspects: {}
 };
 
 
@@ -2991,6 +2994,9 @@ function clTaxLimpiarDependientes() {
     cl.swimStyle = ''; cl.activity = ''; cl.shoeWidth = ''; cl.style = '';
     cl._ebayTitle = null; cl._ebayDesc = null;
   }
+  // Los aspectos que la nueva hoja ya no admite se descartan; los que sigue
+  // admitiendo se conservan. Fotos, SKU, precio y peso no se tocan.
+  clTaxPodarAspectos();
 }
 
 // Seleccion actual en el vocabulario de la taxonomia.
@@ -3055,6 +3061,289 @@ function clTaxRenderSelectores() {
       + '</div>';
   }
   return h;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 3 — ASPECTOS DINAMICOS (SIGUE DETRAS DEL FLAG APAGADO)
+//
+// Los controles salen de la categoria oficial resuelta. Si la categoria no
+// admite un aspecto, ese control no existe: no se pinta y no se puede rellenar.
+// Con el flag apagado todo esto devuelve cadena vacia y no se ejecuta.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Categoria activa. Devuelve el resultado de clResolveLeaf tal cual: si la
+// seleccion esta incompleta o la combinacion no existe, devuelve el error con
+// su codigo. Nunca cae al mapa viejo.
+function clTaxCategoriaActiva() {
+  if (!clTaxV134()) return { ok: false, codigo: 'FLAG_APAGADO' };
+  return clResolveLeaf(clTaxSeleccion());
+}
+
+// ── puente con los campos que ya existen ───────────────────────────────────
+// Brand y Color NO tienen control propio: se leen de los campos de siempre.
+// Asi no hay dos marcas ni dos colores que puedan discrepar.
+function clTaxValorReutilizado(campo) {
+  if (campo === 'brand') return cl.brand === 'Other' ? (cl.brandCustom || '') : (cl.brand || '');
+  if (campo === 'color') return cl.color === 'Other' ? (cl.colorCustom || '') : (cl.color || '');
+  return '';
+}
+
+// Valores efectivos: lo capturado en cl.aspects mas lo que aportan los campos
+// reutilizados. Un valor reutilizado solo cuenta si la categoria lo admite.
+function clTaxValoresAspectos(cid) {
+  var v = {};
+  for (var k in cl.aspects) if (Object.prototype.hasOwnProperty.call(cl.aspects, k)) v[k] = cl.aspects[k];
+  var lista = clAspectsFor(cid);
+  for (var i = 0; i < lista.length; i++) {
+    var a = lista[i];
+    if (!a.reutiliza) continue;
+    var val = clTaxValorReutilizado(a.reutiliza);
+    if (val && clAspectValido(cid, a.nombre, val)) v[a.nombre] = val;
+    else delete v[a.nombre];
+  }
+  return v;
+}
+
+// ── escritura ──────────────────────────────────────────────────────────────
+// Rechaza cualquier valor que la categoria no admita. Nada de inventar.
+function clTaxSetAspect(nombre, valor, rerender) {
+  if (!clTaxV134()) return false;
+  var r = clTaxCategoriaActiva();
+  if (!r.ok) return false;
+  if (valor === '' || valor === null || valor === undefined) {
+    delete cl.aspects[nombre];
+  } else if (clAspectValido(r.categoryId, nombre, valor)) {
+    cl.aspects[nombre] = valor;
+  } else {
+    return false;                       // valor fuera de la lista oficial
+  }
+  if (rerender !== false && typeof clRenderAttr === 'function') clRenderAttr();
+  return true;
+}
+
+// Alterna: tocar el chip ya elegido lo deselecciona. Ningun aspecto queda
+// preseleccionado por defecto, ni siquiera el primer valor.
+function clTaxToggleAspect(nombre, valor) {
+  if (cl.aspects[nombre] === valor) return clTaxSetAspect(nombre, '');
+  return clTaxSetAspect(nombre, valor);
+}
+
+// Texto libre: solo se guarda cuando la persona lo confirma, no en cada tecla.
+function clTaxConfirmAspect(nombre, el) {
+  if (!el) return;
+  var v = String(el.value || '').trim();
+  clTaxSetAspect(nombre, v);
+}
+
+// ── limpieza dependiente ───────────────────────────────────────────────────
+// Al cambiar la categoria se conservan los valores que la nueva hoja sigue
+// admitiendo y se descartan solo los que dejaron de ser validos. Fotos, SKU,
+// precio, peso, ubicacion, defectos y notas no se tocan nunca.
+function clTaxPodarAspectos() {
+  if (!clTaxV134()) return [];
+  var descartados = [];
+  var r = clTaxCategoriaActiva();
+  if (!r.ok) {
+    // Sin categoria valida no se puede juzgar nada: se conserva tal cual.
+    return descartados;
+  }
+  for (var nombre in cl.aspects) {
+    if (!Object.prototype.hasOwnProperty.call(cl.aspects, nombre)) continue;
+    if (!clAspectValido(r.categoryId, nombre, cl.aspects[nombre])) {
+      descartados.push(nombre);
+      delete cl.aspects[nombre];
+    }
+  }
+  // La talla vive en cl.size; se somete a la misma regla.
+  if (cl.size) {
+    var aspTalla = clAspectsFor(r.categoryId).filter(function (a) {
+      return a.nombre === 'Size' || a.nombre === 'US Shoe Size';
+    })[0];
+    if (!aspTalla || !clAspectValido(r.categoryId, aspTalla.nombre, cl.size)) {
+      descartados.push('Size');
+      cl.size = '';
+    }
+  }
+  return descartados;
+}
+
+// ── render ─────────────────────────────────────────────────────────────────
+function clTaxEsc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function clTaxAviso(txt, detalle) {
+  return '<div class="cl-sect" id="cl-tax-aviso" style="border:1px solid #8a6d1f;'
+    + 'background:rgba(255,196,0,.08);border-radius:10px;padding:14px">'
+    + '<div style="color:#ffc400;font-weight:700;font-size:13px">' + clTaxEsc(txt) + '</div>'
+    + (detalle ? '<div style="color:var(--mu);font-size:12px;margin-top:6px">' + clTaxEsc(detalle) + '</div>' : '')
+    + '</div>';
+}
+
+// Bloque completo de aspectos oficiales. '' con el flag apagado.
+function clTaxRenderAspectos() {
+  if (!clTaxV134()) return '';
+
+  var r = clTaxCategoriaActiva();
+  if (!r.ok) {
+    if (r.codigo === 'FALTA_PRENDA')      return clTaxAviso('Elige una categoria para ver sus item specifics.');
+    if (r.codigo === 'FALTA_RAMA')        return clTaxAviso('Elige Men, Women, Unisex, Kids o Scrubs.');
+    if (r.codigo === 'FALTA_AGE_GROUP')   return clTaxAviso('Elige el grupo de edad: Baby & Toddler o Sizes 4 & Up.');
+    if (r.codigo === 'FALTA_KIDS_DEPT')   return clTaxAviso('Elige el departamento.');
+    if (r.codigo === 'FALTA_RAMA_BASE')   return clTaxAviso('Elige la rama base: Men o Women.');
+    if (r.codigo === 'SIN_TAXONOMIA')     return clTaxAviso('La taxonomia oficial no esta cargada.', 'No se puede capturar hasta resolverlo.');
+    // Combinacion inexistente: se dice claramente y NO se pintan aspectos.
+    return clTaxAviso('Esa combinacion no existe en la taxonomia oficial de eBay.',
+      (r.mensaje || '') + (r.disponibles ? ' Disponibles: ' + r.disponibles.join(', ') : ''));
+  }
+
+  var aspectos = clAspectsFor(r.categoryId);
+  var valores  = clTaxValoresAspectos(r.categoryId);
+  var faltan   = clAspectosFaltantes(r.categoryId, valores);
+
+  var h = '<div class="cl-sect" id="cl-tax-aspectos">'
+    + '<div class="lbl">ITEM SPECIFICS · ' + clTaxEsc(r.nombre)
+    + ' <span style="color:var(--mu);font-weight:400">ID ' + clTaxEsc(r.categoryId) + '</span></div>'
+    + '<div style="font-size:11px;color:var(--mu);margin:2px 0 10px">' + clTaxEsc(r.ruta) + '</div>';
+
+  if (r.department) {
+    h += '<div style="font-size:12px;color:var(--mu);margin-bottom:10px">Department: <b style="color:var(--tx)">'
+      + clTaxEsc(r.department) + '</b> <span style="opacity:.7">(lo fija el grupo elegido)</span></div>';
+  }
+
+  for (var i = 0; i < aspectos.length; i++) h += clTaxRenderAspecto(r.categoryId, aspectos[i], valores);
+
+  h += '<div style="margin-top:12px;font-size:12px;color:'
+    + (faltan.length ? '#ff8a65' : 'var(--mu)') + '">'
+    + (faltan.length
+        ? '⚠ Faltan ' + faltan.length + ' obligatorios: ' + clTaxEsc(faltan.join(', '))
+        : '✓ Todos los obligatorios estan completos')
+    + '</div></div>';
+  return h;
+}
+
+function clTaxRenderAspecto(cid, a, valores) {
+  var actual = valores[a.nombre] === undefined ? '' : valores[a.nombre];
+  var id     = 'cl-tax-' + a.nombre.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase();
+  var marca  = a.requerido
+    ? '<span style="color:#ff8a65">*</span>'
+    : '<span style="color:var(--mu);font-weight:400;font-size:10px"> opcional</span>';
+
+  var h = '<div class="cl-tax-asp" data-aspecto="' + clTaxEsc(a.nombre) + '" style="margin-top:14px">'
+        + '<div class="lbl" style="display:flex;align-items:center;gap:6px">'
+        + clTaxEsc(a.nombre) + marca + '</div>';
+
+  // Campos que ya existen arriba: no se duplican.
+  if (a.reutiliza) {
+    var etiqueta = a.reutiliza === 'brand' ? 'BRAND' : 'COLOR';
+    h += '<div style="font-size:12px;padding:10px;border-radius:8px;background:var(--sf2);'
+      + 'color:' + (actual ? 'var(--tx)' : '#ff8a65') + '">'
+      + (actual
+          ? '✓ ' + clTaxEsc(actual) + ' <span style="color:var(--mu)">· del campo ' + etiqueta + '</span>'
+          : 'Sin valor admitido. Usa el campo ' + etiqueta + ' de arriba.')
+      + '</div></div>';
+    return h;
+  }
+
+  if (a.control === 'rueda') {
+    // Rueda con los valores oficiales de ESTA categoria. Sin preseleccion.
+    h += '<div class="cl-size-wrap" id="' + id + '-wrap" style="height:150px">'
+      + '<div class="wh-fade-top"></div><div class="wh-indicator"></div><div class="wh-fade-bot"></div>'
+      + '<div class="wheel-list" id="' + id + '-list" data-aspecto="' + clTaxEsc(a.nombre) + '"></div></div>'
+      + '<div style="text-align:center;margin-top:6px;font-size:13px;color:var(--mu)">'
+      + (actual ? 'Seleccionado: <b style="color:var(--ac)">' + clTaxEsc(actual) + '</b>'
+                : '<span style="color:#ff8a65">Sin seleccionar</span>')
+      + ' <span style="opacity:.6">· ' + a.nv + ' valores oficiales</span></div></div>';
+    return h;
+  }
+
+  if (a.control === 'texto') {
+    // FREE_TEXT sin lista incrustada (Brand en categorias con miles de marcas).
+    // Se confirma al salir del campo o al pulsar Enter; no se guarda por tecla.
+    h += '<input class="ui" id="' + id + '" type="text" style="width:100%"'
+      + ' placeholder="Escribe y confirma…"'
+      + ' value="' + clTaxEsc(actual) + '"'
+      + ' onchange="clTaxConfirmAspect(\'' + clTaxEsc(a.nombre) + '\', this)">'
+      + '<div style="font-size:11px;color:var(--mu);margin-top:4px">Texto libre · eBay sugiere '
+      + a.nv + ' valores, pero acepta cualquiera.</div></div>';
+    return h;
+  }
+
+  if (a.control === 'select') {
+    // Listas largas: <select> nativo. En iPhone/iPad abre la rueda del sistema,
+    // que se recorre con el pulgar y tiene busqueda por teclado en iPad.
+    h += '<select class="ui" id="' + id + '" style="width:100%"'
+      + ' onchange="clTaxSetAspect(\'' + clTaxEsc(a.nombre) + '\', this.value)">'
+      + '<option value=""' + (actual ? '' : ' selected') + '>— Sin seleccionar —</option>';
+    for (var i = 0; i < a.valores.length; i++) {
+      var v = a.valores[i];
+      h += '<option value="' + clTaxEsc(v) + '"' + (v === actual ? ' selected' : '') + '>' + clTaxEsc(v) + '</option>';
+    }
+    h += '</select></div>';
+    return h;
+  }
+
+  // chips. La marca de seleccion compara contra el VALOR, no contra la letra
+  // 'v': ese era el bug de los cuatro chips viejos, que nunca se marcaban.
+  h += '<div class="cl-chips">';
+  for (var j = 0; j < a.valores.length; j++) {
+    var val = a.valores[j];
+    h += '<button type="button" class="cl-chip' + (val === actual ? ' sel' : '') + '"'
+      + ' data-v="' + clTaxEsc(val) + '"'
+      + ' onclick="clTaxToggleAspect(\'' + clTaxEsc(a.nombre).replace(/'/g, "\\'") + '\', this.dataset.v)">'
+      + clTaxEsc(val) + '</button>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+// Rueda dinamica. Se llama despues de insertar el HTML. Sin valor por defecto:
+// si cl.size no esta en la lista oficial, la rueda arranca sin seleccion.
+function clTaxInitRuedas() {
+  if (!clTaxV134() || typeof document === 'undefined') return;
+  var r = clTaxCategoriaActiva();
+  if (!r.ok) return;
+  var aspectos = clAspectsFor(r.categoryId);
+  for (var i = 0; i < aspectos.length; i++) {
+    if (aspectos[i].control !== 'rueda') continue;
+    clTaxBuildRueda(r.categoryId, aspectos[i]);
+  }
+}
+
+function clTaxBuildRueda(cid, a) {
+  var id   = 'cl-tax-' + a.nombre.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '-list';
+  var list = document.getElementById(id);
+  if (!list) return;
+  var H = 44, PAD = 2;
+  var vals = a.valores;
+  var idx  = vals.indexOf(cl.size);          // -1 si no hay valor valido
+  var sp   = '<div style="height:44px;flex-shrink:0"></div>';
+  list.innerHTML = new Array(PAD + 1).join(sp)
+    + vals.map(function (v, i) {
+        return '<div class="clw-item' + (i === idx ? ' sel' : '') + '" data-idx="' + i + '">' + clTaxEsc(v) + '</div>';
+      }).join('')
+    + new Array(PAD + 1).join(sp);
+  if (idx >= 0) list.scrollTop = idx * H;
+
+  list.addEventListener('scroll', function () {
+    var n = Math.max(0, Math.min(vals.length - 1, Math.round(list.scrollTop / H)));
+    if (n === idx) return;
+    idx = n;
+    var items = list.querySelectorAll('.clw-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.toggle('sel', i === n);
+    cl.size = vals[n];
+    cl.aspects[a.nombre] = vals[n];
+    if (typeof playTick === 'function') playTick();
+  }, { passive: true });
+
+  list.addEventListener('click', function (e) {
+    var it = e.target.closest ? e.target.closest('[data-idx]') : null;
+    if (!it) return;
+    list.scrollTo({ top: parseInt(it.dataset.idx, 10) * H, behavior: 'smooth' });
+  });
 }
 
 const CL_GENDER_OPTIONS = [
@@ -4011,63 +4300,63 @@ function clRenderAttr() {
       <div class="cl-chips" id="cat-chips">
         ${clTaxCategorias().map(c=>`<button class="cl-chip${cl.category===c?' sel':''}" onclick="clSetCat('${c}')">${c}</button>`).join('')}
       </div>
-    </div>
+    </div>${clTaxRenderAspectos()}
 
-    <div class="cl-sect" id="inseam-sect" style="display:${['Pants','Jeans','Shorts'].includes(cl.category)?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="inseam-sect" style="display:${['Pants','Jeans','Shorts'].includes(cl.category)?'block':'none'}">
       <div class="lbl">INSEAM (largo de pierna)</div>
       <div class="cl-chips" id="inseam-chips">
         ${clInseamOptions().map(v=>
           '<button class="cl-chip cl-inseam-chip' + (cl.inseam===v?' sel':'') + '" data-v="' + v + '" data-action="inseam">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect" id="dresslength-sect" style="display:${['Dress','Skirt'].includes(cl.category)?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="dresslength-sect" style="display:${['Dress','Skirt'].includes(cl.category)?'block':'none'}">
       <div class="lbl">DRESS / SKIRT LENGTH</div>
       <div class="cl-chips" id="dresslength-chips">
         ${['Mini','Above Knee','Knee Length','Midi','Maxi','Floor Length'].map(v=>
           '<button class="cl-chip cl-dresslength-chip' + (cl.dressLength===v?' sel':'') + '" data-v="' + v + '" onclick="clSetDressLength(\'' + v + '\')">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect" id="outermaterial-sect" style="display:${['Jacket','Coat','Vest'].includes(cl.category)?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="outermaterial-sect" style="display:${['Jacket','Coat','Vest'].includes(cl.category)?'block':'none'}">
       <div class="lbl">OUTER SHELL MATERIAL</div>
       <div class="cl-chips" id="outermaterial-chips">
         ${['Cotton','Polyester','Nylon','Wool','Denim','Leather','Fleece','Down','Synthetic','Other'].map(v=>
           '<button class="cl-chip cl-outermaterial-chip' + ((cl.outerMaterial||'')==='v'?' sel':'') + '" data-v="' + v + '" onclick="clSetOuterMaterial(\'' + v + '\')">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect" id="swimstyle-sect" style="display:${cl.category==='Swimwear'?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="swimstyle-sect" style="display:${cl.category==='Swimwear'?'block':'none'}">
       <div class="lbl">SWIMWEAR STYLE</div>
       <div class="cl-chips" id="swimstyle-chips">
         ${['Bikini','One-Piece','Tankini','Board Shorts','Swim Trunks','Rash Guard','Cover-Up','Other'].map(v=>
           '<button class="cl-chip cl-swimstyle-chip' + ((cl.swimStyle||'')==='v'?' sel':'') + '" data-v="' + v + '" onclick="clSetSwimStyle(\'' + v + '\')">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect" id="activity-sect" style="display:${['Activewear Top','Activewear Bottom'].includes(cl.category)?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="activity-sect" style="display:${['Activewear Top','Activewear Bottom'].includes(cl.category)?'block':'none'}">
       <div class="lbl">ACTIVITY / SPORT</div>
       <div class="cl-chips" id="activity-chips">
         ${['Running','Yoga','Training','Basketball','Soccer','Cycling','Tennis','Swimming','General Fitness','Other'].map(v=>
           '<button class="cl-chip cl-activity-chip' + ((cl.activity||'')==='v'?' sel':'') + '" data-v="' + v + '" onclick="clSetActivity(\'' + v + '\')">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect" id="shoewidth-sect" style="display:${cl.type==='shoes'?'block':'none'}">
+    ${clTaxV134() ? '' : `<div class="cl-sect" id="shoewidth-sect" style="display:${cl.type==='shoes'?'block':'none'}">
       <div class="lbl">SHOE WIDTH</div>
       <div class="cl-chips" id="shoewidth-chips">
         ${['Narrow (AA/A)','Regular (B/M)','Wide (D/W)','Extra Wide (EE/2E)','Extra Wide (EEE/3E)','Not Specified'].map(v=>
           '<button class="cl-chip cl-shoewidth-chip' + ((cl.shoeWidth||'')==='v'?' sel':'') + '" data-v="' + v + '" onclick="clSetShoeWidth(\'' + v + '\')">' + v + '</button>'
         ).join('')}
       </div>
-    </div>
+    </div>`}
 
-    <div class="cl-sect">
+    ${clTaxV134() ? '' : `<div class="cl-sect">
       <div class="lbl">TALLA</div>
       <div class="cl-size-wrap" id="size-wheel-wrap">
         <div class="wh-fade-top"></div>
@@ -4081,7 +4370,7 @@ function clRenderAttr() {
       <div id="custom-size-row" style="display:none;margin-top:8px">
         <input class="ui" id="custom-size-in" type="text" placeholder="Custom size (e.g. 6X, 26W, Petite M...)" oninput="cl.size=this.value">
       </div>
-    </div>
+    </div>`}
 
     <div class="cl-sect">
       <div class="lbl">COLOR</div>
@@ -4114,6 +4403,10 @@ function clRenderAttr() {
       <button class="ag-btn" onclick="clGo(1)" style="flex:1">← Back</button>
       <button class="add-btn" onclick="clStep2Next()" style="flex:2;margin-bottom:0">Continue →</button>
     </div>`;
+
+  // Las ruedas oficiales se construyen despues de insertar el HTML.
+  // No altera el HTML: solo rellena los contenedores ya pintados.
+  if (clTaxV134()) clTaxInitRuedas();
 }
 
 
@@ -4277,6 +4570,9 @@ function playTick() {
 
 // ── SIZE WHEEL DRUM ROLL ──────────────────────────────────────
 function clInitSizeWheel() {
+  // Con el flag encendido manda la rueda oficial (clTaxBuildRueda), que no
+  // preselecciona nada. Esta funcion pondria cl.size = 'L' por defecto.
+  if (clTaxV134()) return;
   const ALL_SIZES = cl.type==='shoes'
     ? (cl.gender==='kids'||cl.category&&cl.category.toLowerCase().includes('kids')?CL_SHOE_SIZES_KIDS:CL_SHOE_SIZES_US).concat(['Custom'])
     : [
@@ -4344,6 +4640,7 @@ function clInitSizeWheel() {
 function clSetBrand(b) {
   cl.brand = b;
   cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
+  if (clTaxV134()) { clRenderAttr(); clUpdateSKUDisplay(); return; }
   clInitSizeWheel();
   document.querySelectorAll('#brand-chips .cl-chip').forEach(el => el.classList.toggle('sel', el.textContent===b));
   const customIn = $('brand-custom-in');
@@ -4352,6 +4649,16 @@ function clSetBrand(b) {
 }
 
 function clSetCat(c) {
+  // Camino nuevo: la categoria manda sobre los aspectos, asi que se poda lo
+  // que la nueva hoja ya no admita y se repinta entero. Fotos, SKU, precio,
+  // peso y defectos no se tocan.
+  if (clTaxV134()) {
+    cl.category = c;
+    cl._ebayTitle = null; cl._ebayDesc = null;
+    clTaxPodarAspectos();
+    clRenderAttr();
+    return;
+  }
   // Initialize INSEAM listeners whenever category changes
   clInitInseamListeners();
   cl.category = c;
@@ -4405,6 +4712,7 @@ function clSetShoeWidth(v) {
 function clSetColor(c) {
   cl.color = c;
   cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
+  if (clTaxV134()) { clRenderAttr(); return; }
   document.querySelectorAll('.cl-color-chip').forEach(el => el.classList.toggle('sel', el.title===c));
   const customIn = $('color-custom-in');
   if (customIn) customIn.style.display = c==='Other'?'block':'none';

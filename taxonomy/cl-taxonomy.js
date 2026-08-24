@@ -247,6 +247,97 @@
     return a.v || _datos.listas[a.ref] || [];
   }
 
+  // ── aspectos de una categoria ─────────────────────────────────────────────
+  // Orden de presentacion. Son los nombres EXACTOS de eBay: no se traducen ni
+  // se abrevian, porque el CSV los usara tal cual mas adelante.
+  //
+  // Ojo con los cuatro pares que se confunden facil y que eBay trata como
+  // aspectos distintos:
+  //   Size            != US Shoe Size      (el calzado NO tiene Size)
+  //   Style           != Heel Style        (Wedge es Heel Style, no Style)
+  //   Dress Length    != Skirt Length      (las faldas no tienen Dress Length)
+  //   Material        != Upper Material != Outer Shell Material
+  var ORDEN = [
+    'Brand', 'Department',
+    'Size', 'Size Type', 'US Shoe Size', 'Shoe Width',
+    'Type', 'Style', 'Heel Style', 'Heel Height',
+    'Color',
+    'Material', 'Upper Material', 'Outer Shell Material',
+    'Sleeve Length', 'Inseam', 'Dress Length', 'Skirt Length',
+    'Performance/Activity'
+  ];
+
+  // Aspectos que se capturan con un control que ya existe en la aplicacion,
+  // en vez de crear un segundo campo para lo mismo.
+  var REUTILIZADOS = { 'Brand': 'brand', 'Color': 'color' };
+
+  // Por encima de este numero de valores, chips dejan de ser usable en un
+  // telefono: se usa un <select> nativo, que en iOS abre el selector de rueda.
+  var TOPE_CHIPS = 12;
+
+  // Descriptores normalizados de los aspectos de una categoria, en ORDEN.
+  // Solo devuelve los que la categoria admite de verdad: si el aspecto no esta
+  // en el JSON oficial de esa hoja, no aparece aqui y por tanto no puede
+  // pintarse ni enviarse.
+  function clAspectsFor(cid) {
+    if (!_datos) return [];
+    var c = _datos.categorias[String(cid)];
+    if (!c) return [];
+    var out = [];
+    var vistos = {};
+    var meter = function (nombre) {
+      if (vistos[nombre] || !c.a[nombre]) return;
+      vistos[nombre] = 1;
+      var a = c.a[nombre];
+      var vals = a.abierto ? [] : (a.v || _datos.listas[a.ref] || []);
+      out.push({
+        nombre: nombre,                       // nombre EXACTO de eBay
+        requerido: a.r === 1,
+        modo: a.m,                            // 'sel' = lista cerrada, 'txt' = texto libre
+        abierto: a.abierto === 1,             // sin lista incrustada (Brand)
+        nv: a.nv,                             // cuantos valores tiene el oficial
+        valores: vals,
+        reutiliza: REUTILIZADOS[nombre] || null,
+        control: a.abierto ? 'texto'
+               : (nombre === 'Size' || nombre === 'US Shoe Size') ? 'rueda'
+               : vals.length > TOPE_CHIPS ? 'select'
+               : 'chips'
+      });
+    };
+    for (var i = 0; i < ORDEN.length; i++) meter(ORDEN[i]);
+    // Cualquier aspecto conservado que no este en ORDEN se pinta al final,
+    // para que anadir uno al derivado no lo deje invisible.
+    for (var k in c.a) if (Object.prototype.hasOwnProperty.call(c.a, k)) meter(k);
+    return out;
+  }
+
+  // ¿Es `valor` admisible para `aspecto` en `cid`? Un aspecto abierto o de
+  // texto libre acepta cualquier texto no vacio; uno de lista cerrada solo
+  // acepta valores de su lista. Nunca se acepta un valor inventado en 'sel'.
+  function clAspectValido(cid, aspecto, valor) {
+    if (valor === undefined || valor === null || valor === '') return false;
+    if (!_datos) return false;
+    var c = _datos.categorias[String(cid)];
+    if (!c || !c.a[aspecto]) return false;   // la categoria no admite el aspecto
+    var a = c.a[aspecto];
+    if (a.abierto) return String(valor).trim().length > 0;
+    var vals = a.v || _datos.listas[a.ref] || [];
+    if (!vals.length) return String(valor).trim().length > 0;
+    return vals.indexOf(valor) !== -1;
+  }
+
+  // Los obligatorios que siguen sin valor. [] = se puede exportar.
+  function clAspectosFaltantes(cid, valores) {
+    valores = valores || {};
+    var faltan = [];
+    var lista = clAspectsFor(cid);
+    for (var i = 0; i < lista.length; i++) {
+      var a = lista[i];
+      if (a.requerido && !clAspectValido(cid, a.nombre, valores[a.nombre])) faltan.push(a.nombre);
+    }
+    return faltan;
+  }
+
   // Prendas ofrecibles para una seleccion superior. Salen de `seleccion`, no de
   // listas escritas a mano. Devuelve [] si la seleccion aun esta incompleta.
   function clCategoriesFor(sel) {
@@ -282,6 +373,11 @@
     clTaxonomyReset: clTaxonomyReset,
     clResolveLeaf: clResolveLeaf,
     clAspectValues: clAspectValues,
+    clAspectsFor: clAspectsFor,
+    clAspectValido: clAspectValido,
+    clAspectosFaltantes: clAspectosFaltantes,
+    ORDEN_ASPECTOS: ORDEN,
+    TOPE_CHIPS: TOPE_CHIPS,
     clCategoriesFor: clCategoriesFor
   };
 
