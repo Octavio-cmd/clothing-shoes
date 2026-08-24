@@ -3479,6 +3479,212 @@ function clTaxRenderInforme() {
   return h + '</div>';
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PASO 5 — CSV v134 PARALELO (SIGUE DETRAS DEL FLAG APAGADO)
+//
+// Camino nuevo, completo y aparte. Con el flag apagado no se ejecuta ni una
+// linea de aqui: clExportEbayCSV sigue produciendo el CSV de siempre, byte a
+// byte. Aqui NO hay ni un solo valor de relleno.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Version del esquema de las filas guardadas en sesion. Una fila sin este
+// campo es del esquema antiguo y NO se convierte por suposicion: se exporta
+// con el CSV antiguo, que es el unico formato para el que fue capturada.
+var CL_ESQUEMA_FILA = 2;
+
+// ── EL MARCADOR '*' DEL ENCABEZADO ─────────────────────────────────────────
+// En las plantillas fx_category_template de eBay, el '*' delante del nombre de
+// la columna marca que el dato es obligatorio. El CSV que hoy funciona en
+// produccion lo usa asi: *C:Brand, *C:Size Type, *C:Size, *C:Department,
+// *C:Color, *C:Style llevan asterisco y el resto no.
+//
+// El problema es que un mismo archivo lleva filas de categorias distintas, y
+// un aspecto obligatorio en una no lo es en otra: 'Size Type' es obligatorio
+// en Women's Tops y NO EXISTE en Boys' Shoes. Hoy eso no se nota porque el
+// exportador rellena la columna con 'Regular' en todas las filas; en el camino
+// nuevo esa celda tiene que ir vacia.
+//
+// No pude comprobar contra la documentacion de eBay que hace su lector cuando
+// una columna marcada con '*' llega vacia: la red hacia ebay.com y
+// developer.ebay.com esta bloqueada en este entorno. Asi que la decision se
+// toma por el lado que no puede fallar en ninguno de los dos casos:
+//
+//   '*C:' SOLO cuando el aspecto es obligatorio en TODAS las categorias del
+//   lote. Asi una columna con asterisco jamas queda vacia en ninguna fila.
+//
+// Si el '*' resulta ser meramente informativo, esta regla es igual de valida.
+// Si resulta que eBay rechaza la fila con un '*' vacio, esta regla lo evita.
+// La alternativa —marcar con '*' todo lo obligatorio en al menos una— solo es
+// segura bajo el primer supuesto, y ese supuesto no esta verificado.
+//
+// Queda pendiente confirmarlo con una exportacion de prueba real antes del
+// paso 6.
+function clCsvPrefijo(col) {
+  return col.obligatorioEnTodas ? '*C:' : 'C:';
+}
+
+// Encabezado dinamico. Recibe las categorias del lote y devuelve el array de
+// columnas ya con su prefijo.
+function clCsvHeaderV134(categoryIds) {
+  var cols = clCsvColumnsFor(categoryIds);
+  var hdr = ['*Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8)',
+             'CustomLabel', '*Category', '*Title', '*ConditionID'];
+  for (var i = 0; i < cols.length; i++) hdr.push(clCsvPrefijo(cols[i]) + cols[i].aspecto);
+  hdr = hdr.concat(['PicURL', '*Description', '*Format', '*Duration',
+    '*StartPrice', '*Quantity', 'ImmediatePayRequired', '*Location', '*DispatchTimeMax',
+    'ShippingProfileName', 'ReturnProfileName', 'PaymentProfileName',
+    'WeightMajor', 'WeightMinor']);
+  return { hdr: hdr, cols: cols };
+}
+
+// Una fila. Devuelve { celdas, problemas }.
+//
+// Regla dura: si la categoria de ESTA fila no admite el aspecto de la columna,
+// la celda va vacia. Y si el valor capturado no esta en la lista oficial,
+// tambien va vacia: mandar un valor invalido es peor que no mandar el aspecto,
+// porque eBay lo publica tal cual en la ficha.
+function clCsvRowV134(fila, cols) {
+  var problemas = [];
+  var cid = String(fila.categoryId || '');
+  var aspectos = fila.aspects || {};
+
+  // Categoría no resuelta o ausente. La fila NO se descarta: se emite con la
+  // celda de categoría vacía y todos los aspectos vacíos. Perderla en silencio
+  // sería tan malo como rellenarla con un ID inventado.
+  var sinCategoria = !clTaxonomyData() || !clTaxonomyData().categorias[cid];
+  if (sinCategoria) {
+    problemas.push('categoria ' + (cid || '(vacia)') + ' fuera de la taxonomia v134'
+      + (fila._taxError ? ' (' + fila._taxError.codigo + ')' : ''));
+    cid = '';
+  }
+
+  var celdas = ['Add', fila.sku || '', cid, fila.title || ''];
+
+  // ConditionID: solo de una condicion capturada y reconocida. Sin 1000.
+  var cond = CL_CONDITION_IDS[fila.condition];
+  if (!cond) { problemas.push('condicion no capturada o no reconocida'); cond = ''; }
+  celdas.push(cond);
+
+  // Aspectos, en el orden del encabezado.
+  for (var i = 0; i < cols.length; i++) {
+    var nombre = cols[i].aspecto;
+    var v = aspectos[nombre];
+    if (sinCategoria) { celdas.push(''); continue; }
+    if (v === undefined || v === null || String(v).trim() === '') { celdas.push(''); continue; }
+    if (!clAspectValido(cid, nombre, v)) {
+      // La categoria no lo admite, o el valor no es oficial. Celda vacia.
+      problemas.push(nombre + ': "' + v + '" no es valido en ' + cid);
+      celdas.push('');
+      continue;
+    }
+    celdas.push(v);
+  }
+
+  // StartPrice: solo el precio capturado. Sin 19.99.
+  var precio = clNormalizePrice(fila.price);
+  if (!isFinite(precio) || precio <= 0) { problemas.push('precio no capturado'); precio = ''; }
+  else precio = precio.toFixed(2);
+
+  celdas = celdas.concat([
+    fila.photos || '',
+    fila.description || '',
+    'FixedPrice', 'GTC', precio, '1', '1', 'Lumberton, NC', '1',
+    CL_SHIP_POLICY, CL_RET_POLICY, CL_PAY_POLICY,
+    (fila.weightMajor === '' || fila.weightMajor == null) ? '' : fila.weightMajor,
+    (fila.weightMinor === '' || fila.weightMinor == null) ? '' : fila.weightMinor
+  ]);
+  return { celdas: celdas, problemas: problemas };
+}
+
+// Condicion capturada -> ConditionID oficial de eBay. Sin entrada por defecto:
+// una condicion desconocida deja la celda vacia y se reporta.
+var CL_CONDITION_IDS = { NWT: '1000', NWOT: '1500', EXCEL: '3000', GOOD: '3000', FAIR: '3000' };
+
+// CSV completo del lote v134. Devuelve el texto; no descarga nada.
+function clBuildCsvV134(filas) {
+  var cids = filas.map(function (f) { return String(f.categoryId || ''); });
+  var cab = clCsvHeaderV134(cids);
+  var lineas = ['Info,Version=1.0.0,Template=fx_category_template_EBAY_US', cab.hdr.map(clCsvQ).join(',')];
+  var problemas = [];
+  for (var i = 0; i < filas.length; i++) {
+    var r = clCsvRowV134(filas[i], cab.cols);
+    if (r.problemas.length)
+      problemas.push({ sku: filas[i].sku || '(sin SKU)', detalles: r.problemas });
+    if (r.celdas) lineas.push(r.celdas.map(clCsvQ).join(','));
+  }
+  return { csv: lineas.join('\r\n'), columnas: cab.cols, problemas: problemas, filas: filas.length };
+}
+
+function clCsvQ(v) {
+  v = String(v == null ? '' : v);
+  return (v.indexOf(',') >= 0 || v.indexOf('"') >= 0 || v.indexOf('\n') >= 0)
+    ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+// ── separacion por esquema ─────────────────────────────────────────────────
+// Una fila del esquema antiguo no tiene aspectos oficiales porque nunca se le
+// pidieron. Convertirla seria inventar. Se exporta con el formato para el que
+// fue capturada, en su propio archivo.
+function clSepararPorEsquema(sess) {
+  var nuevas = [], viejas = [];
+  for (var i = 0; i < sess.length; i++)
+    (sess[i] && sess[i]._esquema === CL_ESQUEMA_FILA ? nuevas : viejas).push(sess[i]);
+  return { nuevas: nuevas, viejas: viejas };
+}
+
+// Exportador v134. NO bloquea por problemas de taxonomia: informa y exporta.
+// La guardia de precio y el aviso de peso ya corrieron en clExportEbayCSV.
+//
+// Recibe SOLO las filas del esquema 2. Las antiguas siguen por el camino de
+// siempre, dentro de clExportEbayCSV, sin pasar por aqui.
+function clExportEbayCSVv134(nuevas, cuantasViejas) {
+  if (cuantasViejas) {
+    alert(
+      '\u2139\ufe0f LOTE MIXTO \u2014 salen DOS archivos\n\n' +
+      nuevas.length + ' articulo(s) capturados con la taxonomia oficial v134\n' +
+      cuantasViejas + ' articulo(s) del formato anterior\n\n' +
+      'Los antiguos NO se convierten: se capturaron sin los aspectos que eBay\n' +
+      'pide ahora, y rellenarlos seria inventarlos. Cada grupo sale en su\n' +
+      'propio archivo, con el formato que le corresponde.\n\n' +
+      'No se borra nada de la sesion.'
+    );
+  }
+
+  var out = clBuildCsvV134(nuevas);
+  if (out.problemas.length) {
+    // Informativo. En esta version la exportacion NO se bloquea.
+    console.warn('CSV v134 \u2014 celdas omitidas por no ser validas:', out.problemas);
+    toast('\u26A0\uFE0F ' + out.problemas.length + ' articulo(s) con aspectos incompletos');
+  }
+  clEntregarCsv(out.csv, clCsvNombre(nuevas.length, 'v134'), nuevas.length);
+  return out;
+}
+
+function clCsvNombre(n, sufijo) {
+  var now = new Date();
+  var stamp = now.toISOString().slice(0, 10) + '-'
+    + now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
+  return 'eBay-FX-' + stamp + '-' + n + 'items' + (sufijo ? '-' + sufijo : '') + '.csv';
+}
+
+// Entrega del archivo. Misma via que el camino antiguo: Drive si hay URL, y si
+// no, el panel de opciones que ya existe.
+function clEntregarCsv(csv, fname, n) {
+  if (typeof document === 'undefined') return;
+  var driveUrl = localStorage.getItem('cl_drive_url')
+    || 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec';
+  if (!driveUrl) { clShowExportOptions(csv, fname, n); return; }
+  toast('\uD83D\uDCE4 Subiendo a Google Drive...');
+  fetch(driveUrl, {
+    method: 'POST', mode: 'no-cors',
+    body: JSON.stringify({ csv: csv, filename: fname }),
+    headers: { 'Content-Type': 'text/plain' }
+  })
+    .then(function () { clShowExportOptions(csv, fname, n); })
+    .catch(function () { clShowExportOptions(csv, fname, n); });
+}
+
 const CL_GENDER_OPTIONS = [
   { id:'mens',   label:"Men's",   icon:'👔' },
   { id:'womens', label:"Women's", icon:'👗' },
@@ -6074,6 +6280,35 @@ function clBuildEbayRow(photoUrls) {
   };
 }
 
+// Extensión del esquema 2. Se aplica SOLO con el flag encendido y solo AÑADE
+// campos: los planos que ya consume clSendToRegistroSheet quedan como están.
+//
+// ⚠️ Con el flag encendido la fila se marca SIEMPRE como esquema 2, incluso si
+// la categoría no se resuelve. Marcarla solo cuando hay categoría dejaba una
+// puerta trasera: una fila capturada con el flag encendido pero sin combinación
+// válida caía al CSV antiguo y salía con categoría 63861, Size Type 'Regular' y
+// precio 19.99 sin que nadie se enterara. Eso es exactamente lo que este paso
+// existe para impedir. Si no hay categoría, la fila sigue por el camino v134
+// con categoryId vacío y el problema queda registrado.
+function clAmpliarFilaV134(row) {
+  if (!clTaxV134()) return row;
+  row._esquema  = CL_ESQUEMA_FILA;
+  row.condition = cl.condition || '';          // la condición capturada, sin traducir
+
+  var r = clResolveLeaf(clTaxSeleccion());
+  if (!r.ok) {
+    row.categoryId   = '';                     // vacío, nunca un ID de relleno
+    row.categoryRuta = '';
+    row.aspects      = {};                     // sin valores inventados
+    row._taxError    = { codigo: r.codigo, mensaje: r.mensaje };
+    return row;
+  }
+  row.categoryId   = r.categoryId;             // hoja oficial, sin fallback
+  row.categoryRuta = r.ruta;
+  row.aspects      = clTaxBuildItem(cl, r.categoryId);
+  return row;
+}
+
 // Guardar en sesión para export masivo
 function clSaveToSession(row) {
   let session = JSON.parse(localStorage.getItem('cl_ebay_session') || '[]');
@@ -6362,7 +6597,7 @@ async function clSubmit() {
     const imgbbKey = (localStorage.getItem('cl_imgbb_key') || DEFAULT_IMGBB_KEY);
     const photoUrls = imgbbKey ? (await clUploadAllPhotos() || '') : '';
     if (photoUrls && status) status.textContent = '✅ Photos uploaded!';
-    const ebayRow = clBuildEbayRow(photoUrls);
+    const ebayRow = clAmpliarFilaV134(clBuildEbayRow(photoUrls));
     const n = clSaveToSession(ebayRow);
     clUpdateSessionBadge();
     if (status) status.textContent = '✅ Saved! ' + n + ' items ready to export for eBay.';
@@ -6481,6 +6716,16 @@ function clExportEbayCSV() {
 
   // Enviar también a la hoja de registro de Google Sheets (en paralelo, no bloquea)
   clSendToRegistroSheet(sess);
+
+  // ── DESVÍO AL CSV v134 (solo con el flag encendido) ────────────────────
+  // Las filas del esquema 2 salen por el generador oficial; las antiguas
+  // siguen por el camino de siempre, sin tocar una sola línea de abajo.
+  if (clTaxV134()) {
+    var _sep = clSepararPorEsquema(sess);
+    if (_sep.nuevas.length) clExportEbayCSVv134(_sep.nuevas, _sep.viejas.length);
+    if (!_sep.viejas.length) return;
+    sess = _sep.viejas;
+  }
 
   function q(v) {
     v = String(v==null?'':v);

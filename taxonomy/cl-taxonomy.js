@@ -338,6 +338,52 @@
     return faltan;
   }
 
+  // ── columnas del CSV para un lote ─────────────────────────────────────────
+  // Union de los aspectos que admiten las categorias del lote, en el orden de
+  // ORDEN. Para cada uno dice en cuantas esta y si es obligatorio en TODAS.
+  //
+  // Esa distincion decide el prefijo del encabezado. Ver el comentario de
+  // clCsvHeaderV134 en app.js: '*C:' solo cuando el aspecto es obligatorio en
+  // todas las categorias del lote, porque asi la columna nunca puede quedar
+  // vacia en ninguna fila.
+  function clCsvColumnsFor(categoryIds) {
+    if (!_datos) return [];
+    var ids = [];
+    for (var i = 0; i < (categoryIds || []).length; i++) {
+      var cid = String(categoryIds[i]);
+      if (_datos.categorias[cid] && ids.indexOf(cid) === -1) ids.push(cid);
+    }
+    if (!ids.length) return [];
+
+    var info = {};          // aspecto -> { presenteEn, obligatorioEn }
+    for (var j = 0; j < ids.length; j++) {
+      var a = _datos.categorias[ids[j]].a;
+      for (var n in a) {
+        if (!Object.prototype.hasOwnProperty.call(a, n)) continue;
+        if (!info[n]) info[n] = { presenteEn: 0, obligatorioEn: 0 };
+        info[n].presenteEn++;
+        if (a[n].r === 1) info[n].obligatorioEn++;
+      }
+    }
+
+    var out = [];
+    var meter = function (n) {
+      if (!info[n] || info[n]._puesto) return;
+      info[n]._puesto = 1;
+      out.push({
+        aspecto: n,
+        presenteEn: info[n].presenteEn,
+        obligatorioEn: info[n].obligatorioEn,
+        enTodas: info[n].presenteEn === ids.length,
+        obligatorioEnTodas: info[n].obligatorioEn === ids.length,
+        categorias: ids.length
+      });
+    };
+    for (var k = 0; k < ORDEN.length; k++) meter(ORDEN[k]);
+    for (var n2 in info) if (Object.prototype.hasOwnProperty.call(info, n2)) meter(n2);
+    return out;
+  }
+
   // ── validacion oficial ────────────────────────────────────────────────────
   // Comprueba un item completo contra una categoria y devuelve TODOS los
   // problemas, no solo el primero. No normaliza, no convierte y no rellena:
@@ -488,6 +534,7 @@
     clAspectsFor: clAspectsFor,
     clAspectValido: clAspectValido,
     clAspectosFaltantes: clAspectosFaltantes,
+    clCsvColumnsFor: clCsvColumnsFor,
     clValidateTaxonomyItem: clValidateTaxonomyItem,
     clValidateTaxonomySeleccion: clValidateTaxonomySeleccion,
     ORDEN_ASPECTOS: ORDEN,

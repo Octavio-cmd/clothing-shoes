@@ -3,7 +3,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { RAIZ, entorno, entornoCargado, hash, ESCENARIOS, etiqueta, extraerFuncion } from './_render.mjs';
@@ -12,6 +12,51 @@ const require = createRequire(import.meta.url);
 const T = require(join(RAIZ, 'taxonomy', 'cl-taxonomy.js'));
 const OFICIAL = JSON.parse(readFileSync(join(RAIZ, 'taxonomy', 'ebay-us-v134.json'), 'utf8'));
 const APP = readFileSync(join(RAIZ, 'app.js'), 'utf8');
+
+// ── LINEAS BASE PERMANENTES ────────────────────────────────────────────────
+// Hashes del estado del PASO 4, incrustados. No se usa `git show`: ataba las
+// pruebas al historial (inservibles en un clon superficial) y, peor, la base
+// se movia con cada commit, de modo que tras commitear la comparacion quedaba
+// contra si misma y dejaba de detectar nada.
+// `hash` (16 hex) ya viene de _render.mjs; aqui hace falta la version larga.
+const hash32 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 32);
+const LS = (s) => s.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
+
+const HASH_EXPORT_PASO4 = '951292f1453ebf6407a501c7d668226d';
+const HASH_LOCALSTORAGE = 'b077e7b0c8ba2f540a10fa8d0732e1bf';   // 82 llamadas, ordenadas
+const HASH_LS_ESCRITURAS = '1a0aaa0a0c856aaa24f9ccb5893128e7';  // 27 escrituras, ordenadas
+
+const REVIEW_ESCENARIOS = {
+  'womens/Heels': { gender: 'womens', type: 'shoes', category: 'Heels', brand: 'Nike', color: 'Black', condition: 'NWT' },
+  'mens/Jacket':  { gender: 'mens', type: 'clothing', category: 'Jacket', brand: 'Levi', color: 'Blue', condition: 'EXCEL' },
+  'kids/Tops':    { gender: 'kids', type: 'clothing', category: 'Tops', brand: '', color: '', condition: '' },
+};
+const REVIEW_REF = {
+  'womens/Heels': '2f53f555325eb295',
+  'mens/Jacket':  '1c4f434c6b593cc1',
+  'kids/Tops':    '52a45440671298a4',
+};
+
+const HASH_FN = {
+  'clBuildEbayRow': '030ae49c5e7d0fc845085969491d0ca0',
+  'clBuildAspects': '8e5699b198d0c5758b16f064e4a7c248',
+  'clGetEbayCategoryId': '74e0fca979b60182ef09303a46c0cdcd',
+  'clBuildEbayCategory': '61d39a3db5242ae2883e9c42e95d1458',
+  'buildClothingTitle': '4e46fa5facdf841a581cd21bf5ebb7df',
+  'buildClothingDesc': '3b226d53b15a13f4bb531375f6ba85fa',
+  'clSizeType': 'a5875899d5f1f8b4c3d359c69122963d',
+  'clDept': '545c7fb742936037e4ec1ea22710db93',
+  'clGetConditionId': 'c67a978d93d34a10dabf521a60abcd91',
+  'clCondText': 'f774da9d5b64347b97c6b570bedba328',
+  'clCondShort': '35c06246e9503032296e053bf20a2552',
+  'clSaveToSession': 'eab641c0e096fb2305235422a8d0d8df',
+  'clGetSessionCount': '8e52f2a9a7bb6322e4095d60f2a86f82',
+  'clClearSession': '48cc9e2fd39038edd1b9b27b07674766',
+  'clPreviewSession': 'fffcded4e66385eda6bbef3ac44a551f',
+  'clNormalizePrice': '10e534d2a6a9447ab0c978667d394821',
+  'clCleanColor': 'b0907c0c676dd1cc36eda4e02bfde148',
+  'clInseamOptions': '96c4455b31835813803df3245eaa3a27',
+};
 const IDS = Object.keys(OFICIAL.categorias);
 
 await (async () => {
@@ -407,18 +452,12 @@ describe('flag apagado', () => {
     }
   });
 
-  test('la pantalla de revision es identica a la del commit anterior', () => {
+  test('la pantalla de revision sigue siendo la del PASO 4', () => {
     T._setEnabled(false);
-    const A = entorno(execSync('git show HEAD:app.js', { maxBuffer: 1e9 }).toString(), true);
     const B = entorno(APP, true);
-    for (const st of [
-      { gender: 'womens', type: 'shoes', category: 'Heels', brand: 'Nike', color: 'Black', condition: 'NWT' },
-      { gender: 'mens', type: 'clothing', category: 'Jacket', brand: 'Levi', color: 'Blue', condition: 'EXCEL' },
-      { gender: 'kids', type: 'clothing', category: 'Tops', brand: '', color: '', condition: '' },
-    ]) {
-      Object.assign(A.cl, { sku: 'SKU-1', aspects: {} }, st);
+    for (const [clave, st] of Object.entries(REVIEW_ESCENARIOS)) {
       Object.assign(B.cl, { sku: 'SKU-1', aspects: {} }, st);
-      assert.equal(B.renderReview(), A.renderReview(), `cambio en ${st.gender}/${st.category}`);
+      assert.equal(hash(B.renderReview()), REVIEW_REF[clave], `cambio en ${clave}`);
     }
   });
 
@@ -461,28 +500,55 @@ describe('flag apagado', () => {
 
 // ── 10. lo protegido sigue intacto ─────────────────────────────────────────
 describe('intocado', () => {
-  const VIEJO = execSync('git show HEAD:app.js', { maxBuffer: 1e9 }).toString();
-  const PROTEGIDAS = ['clExportEbayCSV', 'clBuildEbayRow', 'clBuildAspects', 'clGetEbayCategoryId',
-    'clBuildEbayCategory', 'buildClothingTitle', 'buildClothingDesc', 'clSizeType', 'clDept',
-    'clGetConditionId', 'clCondText', 'clCondShort', 'clSaveToSession', 'clGetSessionCount',
-    'clClearSession', 'clPreviewSession', 'clNormalizePrice', 'clCleanColor', 'clInseamOptions'];
-
-  test('las 19 funciones protegidas son identicas byte a byte', () => {
-    assert.equal(PROTEGIDAS.length, 19);
-    for (const f of PROTEGIDAS)
-      assert.equal(extraerFuncion(APP, f), extraerFuncion(VIEJO, f), `cambio en ${f}`);
+  test('las 18 funciones protegidas conservan su hash del PASO 4', () => {
+    assert.equal(Object.keys(HASH_FN).length, 18);
+    for (const [f, esperado] of Object.entries(HASH_FN))
+      assert.equal(hash32(extraerFuncion(APP, f)), esperado, `cambio en ${f}`);
   });
 
-  test('todas las llamadas a localStorage son identicas', () => {
-    const ls = (s) => s.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
-    const a = ls(VIEJO), b = ls(APP);
-    assert.ok(a.length >= 80, `solo ${a.length} llamadas`);
-    assert.deepEqual(b, a);
+  test('clExportEbayCSV no cambio fuera del desvio autorizado', () => {
+    const RE = /\n  \/\/ ── DESVÍO AL CSV v134[\s\S]*?\n  \}\n/;
+    const fn = extraerFuncion(APP, 'clExportEbayCSV');
+    assert.match(fn, RE, 'no se encontro el bloque del desvio');
+    // Quitado el desvio, el cuerpo debe tener el hash exacto del PASO 4.
+    assert.equal(hash32(fn.replace(RE, '')), HASH_EXPORT_PASO4);
+    // Y el desvio no puede hacer nada mas que desviar.
+    for (const prohibido of ['localStorage', 'setItem', 'removeItem', 'splice', 'push('])
+      assert.equal(fn.match(RE)[0].includes(prohibido), false, `el desvio contiene ${prohibido}`);
   });
 
-  test('el CSV no cambio', () => {
+  test('localStorage: la unica llamada nueva es getItem(cl_drive_url)', () => {
+    const llamadas = LS(APP);
+    assert.equal(llamadas.length, 83, 'el numero total de llamadas cambio');
+    // Se compara como multiconjunto ordenado, no por posicion: el orden textual
+    // depende de donde este definida cada funcion en el archivo, y eso no forma
+    // parte del invariante. Lo que importa es QUE llamadas hay y cuantas.
+    const i = llamadas.indexOf("localStorage.getItem('cl_drive_url')");
+    assert.ok(i >= 0, 'no aparece la lectura nueva');
+    const sinLaNueva = llamadas.slice(0, i).concat(llamadas.slice(i + 1)).sort();
+    assert.equal(hash32(JSON.stringify(sinLaNueva)), HASH_LOCALSTORAGE,
+      'cambio alguna llamada distinta de la lectura autorizada');
+  });
+
+  test('no se anadio ningun setItem, removeItem ni clear', () => {
+    const escrituras = APP.match(/localStorage\.(setItem|removeItem|clear)\([^)]*\)/g) || [];
+    assert.equal(escrituras.length, 27);
+    assert.equal(hash32(JSON.stringify(escrituras.slice().sort())), HASH_LS_ESCRITURAS);
+  });
+
+  test('el camino v134 no modifica ni borra sesiones', () => {
+    for (const f of ['clExportEbayCSVv134', 'clBuildCsvV134', 'clSepararPorEsquema',
+                     'clCsvRowV134', 'clAmpliarFilaV134', 'clEntregarCsv']) {
+      const fn = extraerFuncion(APP, f);
+      for (const p of ['setItem', 'removeItem', 'clear(', 'splice('])
+        assert.equal(fn.includes(p), false, `${f} contiene ${p}`);
+    }
+  });
+
+  test('el CSV, los titulos y la descripcion no cambiaron', () => {
     assert.match(APP, /'Add',r\.sku\|\|'',r\.categoryId\|\|'63861'/);
     assert.match(APP, /\*C:Size Type/);
     assert.match(APP, /return t\.substring\(0,80\);/);
+    assert.match(APP, /localStorage\.getItem\('cl_ebay_session'\)/);
   });
 });
