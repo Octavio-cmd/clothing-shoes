@@ -20,6 +20,21 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // compatibilidad: fronend y CSV quedan idénticos.
 var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = false;
 
+// ── FLAG DE ANÁLISIS AUTOMÁTICO DE MEDIDAS (Independiente)
+// Cuando está activado: lee automáticamente meas1/meas2 mediante Claude Vision
+// Valida, muestra panel editable y guarda SOLO lo confirmado por el usuario.
+// Desactivado por defecto para preservar compatibilidad total.
+//
+// ⚠️ LIMITACIONES ACTUALES - NO ACTIVAR hasta:
+//   1. Backend protegido/multimodal desplegado y verificado
+//   2. Prueba real en navegador/iPhone con fotos reales
+//   3. Validación de compresión JPEG: <=700KB individual, <=1.4MB dupla
+//   4. Confirmación de rembg (front/back) y fondo original (meas1/meas2)
+//
+// Pruebas actuales son UNITARIAS Y SIMULADAS con canvas mock, no JPEG real.
+// Ciclo completo DOM/eventos requiere navegador real (no mock).
+var CL_MEASUREMENT_AI_ENABLED = false;
+
 // ── MARCA DE VERSIÓN ────────────────────────────────────────────────────────
 // index.html carga app.js como <script src="app.js"> sin parámetro de versión,
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
@@ -2905,6 +2920,10 @@ let cl = {
   clothingPrices: { minPrice: null, avgPrice: null, suggestedPrice: null, found: false },
   pricesLoading: false,
   step: 1, submitting: false,
+  // ── MEDIDAS FÍSICAS CONFIRMADAS (análisis automático con flag encendido) ──
+  // Solo medidas confirmadas manualmente por el usuario.
+  // Con CL_MEASUREMENT_AI_ENABLED = false, permanece vacío.
+  measurements: [],
   // ── PASO 2, taxonomia v134 — solo se usan con el flag encendido ──────────
   // Con CL_TAXONOMY_V134_ENABLED = false estos campos existen pero nadie los
   // lee, y ninguna ruta de codigo existente los consulta.
@@ -5573,6 +5592,117 @@ function clStep3Next() {
   clGo(4);
 }
 
+// ── Delete Photo + Invalidate Measurements ──────────────────
+// Solicita confirmación antes de cambiar/borrar meas1/meas2 si hay medidas confirmadas
+// action: 'delete' | 'replace'
+// slotId: 'meas1' | 'meas2'
+// onConfirmed: callback(true) si el usuario confirma, callback(false) si cancela
+function clConfirmMeasurementPhotoInvalidation(action, slotId, onConfirmed) {
+  // Solo aplica con flag activo y para meas1/meas2
+  if (!CL_MEASUREMENT_AI_ENABLED || (slotId !== 'meas1' && slotId !== 'meas2')) {
+    onConfirmed(true);
+    return;
+  }
+
+  // Si no hay medidas confirmadas, continúa sin preguntar
+  if (!cl.measurements || cl.measurements.length === 0) {
+    onConfirmed(true);
+    return;
+  }
+
+  // Mostrar diálogo de confirmación
+  const msg = action === 'delete'
+    ? `${slotId} has ${cl.measurements.length} confirmed measurements. Delete photo and clear measurements?`
+    : `${slotId} has ${cl.measurements.length} confirmed measurements. Replace photo and clear measurements?`;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:8px;padding:20px;max-width:400px;box-shadow:0 4px 6px rgba(0,0,0,0.3)">
+      <h3 style="margin:0 0 12px 0">Clear Measurements?</h3>
+      <p style="margin:0 0 20px 0;color:#666;font-size:14px">${msg}</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="this.closest('[style*=\"position:fixed\"]').remove();window._meas_confirm_result(false)"
+          style="padding:8px 16px;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;cursor:pointer">
+          Cancel
+        </button>
+        <button onclick="this.closest('[style*=\"position:fixed\"]').remove();window._meas_confirm_result(true)"
+          style="padding:8px 16px;border:none;border-radius:4px;background:#e74c3c;color:#fff;cursor:pointer">
+          Clear & Continue
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  window._meas_confirm_result = (confirmed) => {
+    delete window._meas_confirm_result;
+    onConfirmed(confirmed);
+  };
+}
+
+// Ejecuta la invalidación de medidas confirmadas (limpia estado)
+function clInvalidateConfirmedMeasurements() {
+  if (_measurementAnalysisState.pendingTimeout) {
+    clearTimeout(_measurementAnalysisState.pendingTimeout);
+    _measurementAnalysisState.pendingTimeout = null;
+  }
+  _measurementAnalysisState.activeRequest = null;
+  _measurementAnalysisState.latestResponse = null;
+  cl.measurements = [];
+  console.log('clInvalidateConfirmedMeasurements: cleared all measurements and pending state');
+}
+
+function clDeletePhoto(slotId) {
+  // Para meas1/meas2, solicitar confirmación si hay medidas confirmadas
+  if (slotId === 'meas1' || slotId === 'meas2') {
+    clConfirmMeasurementPhotoInvalidation('delete', slotId, function(confirmed) {
+      if (!confirmed) {
+        console.log('clDeletePhoto: user cancelled deletion');
+        return;
+      }
+
+      // Usuario confirmó: proceder con borrado
+      if (CL_MEASUREMENT_AI_ENABLED) {
+        clInvalidateConfirmedMeasurements();
+      }
+
+      // Borrar foto
+      delete cl.photos[slotId];
+      delete cl.photos[slotId + '_bg_removed'];
+      toast(`${slotId} deleted`);
+      clRenderPhotos();
+    });
+    return;
+  }
+
+  // Para otros slots, borrar directamente
+  delete cl.photos[slotId];
+  delete cl.photos[slotId + '_bg_removed'];
+  clRenderPhotos();
+}
+
+// Wrapper para clTakePhoto que maneja confirmación de invalidación de medidas
+function clTakePhotoWithConfirmation(slotId) {
+  // Para meas1/meas2, solicitar confirmación si hay medidas confirmadas y la foto ya existe
+  if (cl.photos[slotId] && (slotId === 'meas1' || slotId === 'meas2')) {
+    clConfirmMeasurementPhotoInvalidation('replace', slotId, function(confirmed) {
+      if (!confirmed) {
+        console.log('clTakePhotoWithConfirmation: user cancelled replacement');
+        return;
+      }
+      // Usuario confirmó: proceder con reemplazo
+      if (CL_MEASUREMENT_AI_ENABLED) {
+        clInvalidateConfirmedMeasurements();
+      }
+      clTakePhoto(slotId);
+    });
+    return;
+  }
+
+  // Para fotos nuevas o slots que no son meas1/meas2, proceder directamente
+  clTakePhoto(slotId);
+}
+
 // ── Step 4: Photos ──────────────────────────────────────────
 function clRenderPhotos() {
   const done = PHOTO_SLOTS.filter(s => cl.photos[s.id]).length;
@@ -5582,11 +5712,12 @@ function clRenderPhotos() {
 
     <div class="cl-photo-grid">
       ${PHOTO_SLOTS.map(slot => `
-        <div class="cl-photo-slot${cl.photos[slot.id]?' captured':''}" id="slot-${slot.id}" onclick="clTakePhoto('${slot.id}')">
+        <div class="cl-photo-slot${cl.photos[slot.id]?' captured':''}" id="slot-${slot.id}" style="position:relative" onclick="${CL_MEASUREMENT_AI_ENABLED ? `clTakePhotoWithConfirmation('${slot.id}')` : `clTakePhoto('${slot.id}')`}">
           ${cl.photos[slot.id]
             ? `<img src="${cl.photos[slot.id]}" class="cl-photo-preview">
             <div class="cl-photo-ok">✓</div>
-            ${cl.photos[slot.id+'_bg_removed']?'<div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border-radius:6px;padding:2px 6px;font-size:10px;color:var(--sv);white-space:nowrap">🖼 Background removed</div>':''}`
+            ${cl.photos[slot.id+'_bg_removed']?'<div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border-radius:6px;padding:2px 6px;font-size:10px;color:var(--sv);white-space:nowrap">🖼 Background removed</div>':''}
+            ${(CL_MEASUREMENT_AI_ENABLED && (slot.id==='meas1'||slot.id==='meas2'))?`<button onclick="event.stopPropagation();clDeletePhoto('${slot.id}')" style="position:absolute;top:4px;right:4px;background:#e74c3c;border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:10">×</button>`:''}`
             : `<div class="cl-photo-icon">${slot.icon}</div><div class="cl-photo-label">${slot.label}</div><div class="cl-photo-hint">${slot.hint}</div>`
           }
         </div>`).join('')}
@@ -5702,7 +5833,21 @@ function clTakePhoto(slotId) {
       const slot = document.getElementById('slot-' + slotId);
       if (slot) slot.innerHTML = '<div style="text-align:center;padding:20px"><div class="sp" style="width:32px;height:32px;margin:0 auto 8px"></div><div style="font-size:11px;color:var(--mu)">Processing...</div></div>';
 
-      let dataUrl = await clCompressImage(file, 1600, 0.92);
+      let dataUrl;
+      try {
+        dataUrl = await clCompressImage(file, 1600, 0.92);
+        if (!dataUrl) {
+          console.warn('Image compression returned null');
+          toast('⚠️ Image could not be processed');
+          clRenderPhotos();
+          return resolve();
+        }
+      } catch (err) {
+        console.warn('Image compression failed');
+        toast('⚠️ Image could not be processed');
+        clRenderPhotos();
+        return resolve();
+      }
 
       // SOLO para FRONT y BACK - procesar con Railway rembg
       if ((slotId === 'front' || slotId === 'back')) {
@@ -5777,6 +5922,25 @@ function clTakePhoto(slotId) {
       }
       
       clRenderPhotos();
+
+      // ENGANCHE DE INVALIDACIÓN: después de guardar exitosamente una nueva meas1/meas2
+      if (slotId === 'meas1' || slotId === 'meas2') {
+        if (_measurementAnalysisState.pendingTimeout) {
+          clearTimeout(_measurementAnalysisState.pendingTimeout);
+          _measurementAnalysisState.pendingTimeout = null;
+        }
+        _measurementAnalysisState.activeRequest = null;
+        _measurementAnalysisState.latestResponse = null;
+      }
+
+      // ENGANCHE AUTOMÁTICO: si es meas1 o meas2 y el flag está activo, iniciar análisis
+      if (CL_MEASUREMENT_AI_ENABLED && (slotId === 'meas1' || slotId === 'meas2')) {
+        console.log('clTakePhoto: triggering measurement analysis for ' + slotId);
+        void clAnalyzeMeasurements().catch(function () {
+          console.warn('Measurement analysis failed; retry is available.');
+        });
+      }
+
       resolve();
     };
     input.click();
@@ -6056,6 +6220,8 @@ Return ONLY valid JSON with NO newlines in values:
   // Use detailed descriptions built with JavaScript
   cl._ebayTitle = buildClothingTitle();
   cl._ebayDesc = buildClothingDesc();
+  // Agregar medidas confirmadas (solo si flag encendido y existen medidas)
+  cl._ebayDesc = clAddMeasurementsToDesc(cl._ebayDesc);
 
   if (titleEl) { titleEl.textContent = cl._ebayTitle; if(charsEl) charsEl.textContent = cl._ebayTitle.length + '/80 chars'; }
   if (descEl) descEl.innerHTML = cl._ebayDesc;
@@ -6584,6 +6750,701 @@ async function clUploadAllPhotos() {
   return urls.length > 0 ? urls.join('|') : null;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ANÁLISIS AUTOMÁTICO DE MEDIDAS FÍSICAS (meas1/meas2) — MEDIANTE CLAUDE VISION
+// Flag: CL_MEASUREMENT_AI_ENABLED (desactivado por defecto)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Estado de la solicitud de análisis activa (debounce)
+let _measurementAnalysisState = {
+  pendingTimeout: null,
+  activeRequest: null,
+  latestResponse: null,
+  lastMeas1Hash: null,
+  lastMeas2Hash: null
+};
+
+// Estado del panel de medidas
+let _measurementDraftState = {
+  working: [],     // Copia local en edición
+  overlay: null,   // Referencia al overlay DOM
+  render: null     // Función para re-renderizar la tabla
+};
+
+// Permite nombres de medidas conocidas; cualquier otro se convierte en 'Other'
+const MEASUREMENT_ALLOWED_NAMES = {
+  'Pit to Pit': true, 'Chest': true, 'Waist': true, 'Hip': true, 'Length': true,
+  'Sleeve': true, 'Shoulder': true, 'Rise': true, 'Inseam': true,
+  'Leg Opening': true, 'Outseam': true, 'Shoe Length': true, 'Other': true
+};
+
+// Prepara una copia comprimida de la imagen para análisis, sin rembg ni background removal
+// Devuelve { base64: '...', size: bytes } o null si la compresión falla
+async function clPrepareAnalysisImage(dataUrl, maxWidth=800, maxHeight=800) {
+  if (!dataUrl || !dataUrl.startsWith('data:')) {
+    console.warn('clPrepareAnalysisImage: invalid dataUrl');
+    return null;
+  }
+
+  const MAX_IMAGE_BYTES = 700000; // 700KB por imagen
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+
+        // Cálculo real de tamaño: base64_length * 3/4 = bytes reales
+        const calculateRealBytes = (dataUrl) => {
+          const b64 = dataUrl.split(',')[1] || '';
+          return Math.ceil(b64.length * 3 / 4);
+        };
+
+        // Escalar dimensiones inicial si es necesario
+        let scaleFactor = 1;
+        while ((w * scaleFactor > maxWidth || h * scaleFactor > maxHeight) && scaleFactor > 0.1) {
+          scaleFactor *= 0.9;
+        }
+
+        const finalW = Math.max(1, Math.round(w * scaleFactor));
+        const finalH = Math.max(1, Math.round(h * scaleFactor));
+        canvas.width = finalW;
+        canvas.height = finalH;
+
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx.drawImage(img, 0, 0, finalW, finalH);
+
+        // Compresión iterativa: calidad → dimensiones
+        let quality = 0.85;
+        let currentScale = 1.0;
+        let dataUrlOut = canvas.toDataURL('image/jpeg', quality);
+        let realBytes = calculateRealBytes(dataUrlOut);
+        let attempts = 0;
+
+        while (realBytes > MAX_IMAGE_BYTES && attempts < 20) {
+          attempts++;
+
+          // Primero reducir calidad
+          if (quality > 0.3) {
+            quality -= 0.05;
+            dataUrlOut = canvas.toDataURL('image/jpeg', quality);
+            realBytes = calculateRealBytes(dataUrlOut);
+          }
+
+          // Si sigue excediendo, reducir dimensiones
+          if (realBytes > MAX_IMAGE_BYTES && currentScale > 0.3) {
+            currentScale *= 0.85;
+            canvas.width = Math.max(1, Math.round(finalW * currentScale));
+            canvas.height = Math.max(1, Math.round(finalH * currentScale));
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            dataUrlOut = canvas.toDataURL('image/jpeg', quality);
+            realBytes = calculateRealBytes(dataUrlOut);
+          }
+        }
+
+        if (realBytes > MAX_IMAGE_BYTES) {
+          console.error('clPrepareAnalysisImage: cannot compress below', MAX_IMAGE_BYTES, 'bytes; got', realBytes);
+          resolve(null);
+        } else {
+          const b64 = dataUrlOut.split(',')[1] || '';
+          console.log('clPrepareAnalysisImage: compressed to', realBytes, 'bytes (quality', quality.toFixed(2), 'scale', currentScale.toFixed(2), ')');
+          resolve({ base64: b64, size: realBytes });
+        }
+      };
+      img.onerror = function() {
+        console.error('clPrepareAnalysisImage: image load failed');
+        resolve(null);
+      };
+      img.src = dataUrl;
+    } catch (e) {
+      console.error('clPrepareAnalysisImage error:', e.message);
+      resolve(null);
+    }
+  });
+}
+
+// Valida medidas parseadas de la respuesta de Claude
+// Devuelve { valid: true, measurements: [...] } o { valid: false, error: '...' }
+function clValidateMeasurementsResponse(response) {
+  if (!response || typeof response !== 'object') {
+    return { valid: false, error: 'Response is not an object' };
+  }
+
+  if (!Array.isArray(response.measurements)) {
+    return { valid: false, error: 'measurements is not an array' };
+  }
+
+  // Rechazar propiedades raíz no permitidas (STRICT)
+  const allowedRootKeys = new Set(['measurements', 'unreadable', 'notes']);
+  for (const key of Object.keys(response)) {
+    if (!allowedRootKeys.has(key)) {
+      return { valid: false, error: 'Unexpected root property: ' + key };
+    }
+  }
+
+  const validated = [];
+  const seen = new Set();
+  const allowedMeasurementKeys = new Set(['name', 'value', 'unit', 'source', 'confidence']);
+
+  for (const m of response.measurements) {
+    if (!m || typeof m !== 'object') continue;
+
+    // Rechazar propiedades adicionales en el objeto de medida (STRICT)
+    for (const key of Object.keys(m)) {
+      if (!allowedMeasurementKeys.has(key)) {
+        return { valid: false, error: 'Unexpected property in measurement: ' + key };
+      }
+    }
+
+    // Validar source (meas1 o meas2)
+    if (!['meas1', 'meas2'].includes(m.source)) {
+      console.warn('Invalid measurement source:', m.source);
+      continue;
+    }
+
+    // Validar value: número positivo razonable (0.1 a 999)
+    const val = parseFloat(m.value);
+    if (isNaN(val) || val <= 0 || val > 999) {
+      console.warn('Invalid measurement value:', m.value);
+      continue;
+    }
+
+    // Validar unit: solo in o cm
+    if (!['in', 'cm'].includes(m.unit)) {
+      console.warn('Invalid measurement unit:', m.unit);
+      continue;
+    }
+
+    // Validar confidence: high, medium o low
+    if (!['high', 'medium', 'low'].includes(m.confidence)) {
+      console.warn('Invalid confidence:', m.confidence);
+      continue;
+    }
+
+    // Validar name: debe estar en lista permitida o convertir a 'Other'
+    let name = m.name && typeof m.name === 'string' ? m.name.trim() : '';
+    if (!MEASUREMENT_ALLOWED_NAMES[name]) {
+      console.warn('Unknown measurement name, converting to Other:', name);
+      name = 'Other';
+    }
+
+    // Evitar HTML y propiedades adicionales sospechosas
+    if (typeof name !== 'string' || name.includes('<') || name.includes('>')) {
+      console.warn('Suspicious name, skipping:', name);
+      continue;
+    }
+
+    // Eliminar duplicados exactos
+    const key = name + '|' + val + '|' + m.unit + '|' + m.source;
+    if (seen.has(key)) {
+      console.log('Duplicate measurement skipped:', key);
+      continue;
+    }
+    seen.add(key);
+
+    validated.push({
+      name: name,
+      value: val,
+      unit: m.unit,
+      source: m.source,
+      confidence: m.confidence
+    });
+  }
+
+  return { valid: validated.length > 0, measurements: validated, error: null };
+}
+
+// Envía meas1/meas2 a /api/claude con Vision para análisis
+// Usa debounce: cancela solicitud anterior si existe
+async function clAnalyzeMeasurements() {
+  if (!CL_MEASUREMENT_AI_ENABLED) {
+    console.log('clAnalyzeMeasurements: flag disabled, skipping');
+    return;
+  }
+
+  // Cancelar timeout pendiente
+  if (_measurementAnalysisState.pendingTimeout) {
+    clearTimeout(_measurementAnalysisState.pendingTimeout);
+    _measurementAnalysisState.pendingTimeout = null;
+  }
+
+  // Debounce: esperar 1 segundo antes de enviar
+  _measurementAnalysisState.pendingTimeout = setTimeout(async () => {
+    _measurementAnalysisState.pendingTimeout = null;
+
+    const meas1 = cl.photos.meas1;
+    const meas2 = cl.photos.meas2;
+
+    // Si ambas fotos desaparecieron desde la solicitud anterior, abortar
+    if (!meas1 && !meas2) {
+      console.log('clAnalyzeMeasurements: both meas1/meas2 gone, aborting');
+      _measurementAnalysisState.latestResponse = null;
+      return;
+    }
+
+    // Si ya hay una solicitud activa, no iniciar otra
+    if (_measurementAnalysisState.activeRequest) {
+      console.log('clAnalyzeMeasurements: request already active, skipping');
+      return;
+    }
+
+    try {
+      _measurementAnalysisState.activeRequest = 'pending';
+
+      // Preparar imágenes para análisis (copias comprimidas, sin modificar cl.photos)
+      const prep1 = meas1 ? await clPrepareAnalysisImage(meas1) : null;
+      const prep2 = meas2 ? await clPrepareAnalysisImage(meas2) : null;
+
+      if (!prep1 && !prep2) {
+        console.error('clAnalyzeMeasurements: cannot prepare any image');
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('Unable to prepare images for analysis. Please try again.');
+        return;
+      }
+
+      // Validar tamaño total (<= 1.4MB)
+      const totalBytes = (prep1 ? prep1.size : 0) + (prep2 ? prep2.size : 0);
+      if (totalBytes > 1400000) {
+        console.error('clAnalyzeMeasurements: total size exceeds 1.4MB:', totalBytes);
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('Images too large for analysis (max 1.4 MB combined). Try smaller photos.');
+        return;
+      }
+
+      // Obtener token de sesión
+      const token = sessionStorage.getItem('savvy_session_token');
+      if (!token) {
+        console.warn('clAnalyzeMeasurements: no session token');
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('Not authenticated. Please log in first.');
+        return;
+      }
+
+      // Construir content array con imágenes
+      const content = [
+        {
+          type: 'text',
+          text: `Analyze the physical measurements shown in this clothing item photo. Read ONLY numbers and units visible next to a measuring tape or ruler. Do NOT estimate, deduce, or complete invisible measurements. Do NOT convert body measurements to garment measurements.
+
+Use clear names from this list: Pit to Pit, Chest, Waist, Hip, Length, Sleeve, Shoulder, Rise, Inseam, Leg Opening, Outseam, Shoe Length, or Other.
+
+Respond ONLY with valid JSON (no markdown, no code fences):
+{
+  "measurements": [
+    {"name": "...", "value": number, "unit": "in"|"cm", "source": "meas1"|"meas2", "confidence": "high"|"medium"|"low"},
+    ...
+  ],
+  "unreadable": [],
+  "notes": []
+}`
+        }
+      ];
+
+      // Agregar imágenes base64
+      if (prep1) {
+        content.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: prep1.base64 }
+        });
+      }
+      if (prep2) {
+        content.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: prep2.base64 }
+        });
+      }
+
+      // Enviar a /api/claude
+      console.log('clAnalyzeMeasurements: sending request to /api/claude');
+      const response = await fetch(SAVVY_API + '/api/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          model: SAVVY_MODELO,
+          max_tokens: 600,
+          messages: [{
+            role: 'user',
+            content: content
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+        if (status === 401 || status === 413 || status === 429) {
+          console.warn('clAnalyzeMeasurements: server error', status, '(no retry)');
+          _measurementAnalysisState.activeRequest = null;
+          clShowMeasurementError(`Server error: ${status}. Please try again later.`);
+          return;
+        }
+        throw new Error(`HTTP ${status}`);
+      }
+
+      const respBody = await response.json();
+      console.log('clAnalyzeMeasurements: response received');
+
+      // Extraer texto de respuesta (puede venir en content[0].text o similar)
+      let responseText = '';
+      if (respBody.content && Array.isArray(respBody.content)) {
+        for (const block of respBody.content) {
+          if (block.type === 'text' && block.text) {
+            responseText = block.text;
+            break;
+          }
+        }
+      }
+
+      if (!responseText) {
+        console.error('clAnalyzeMeasurements: no text in response');
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('No response from analysis. Please try again.');
+        return;
+      }
+
+      // Eliminar markdown fences
+      responseText = responseText.replace(/^```[\w]*\n?/m, '').replace(/\n?```$/m, '');
+
+      // Parsear JSON
+      let parsed = null;
+      try {
+        parsed = JSON.parse(responseText);
+      } catch (e) {
+        console.error('clAnalyzeMeasurements: invalid JSON:', e.message);
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('Invalid response format. Please try again.');
+        return;
+      }
+
+      // Validar estructura
+      const validation = clValidateMeasurementsResponse(parsed);
+      if (!validation.valid) {
+        console.warn('clAnalyzeMeasurements: validation failed:', validation.error);
+        _measurementAnalysisState.activeRequest = null;
+        clShowMeasurementError('Analysis returned invalid data: ' + (validation.error || 'unknown error'));
+        return;
+      }
+
+      // Guardar respuesta validada
+      _measurementAnalysisState.latestResponse = validation.measurements;
+      _measurementAnalysisState.activeRequest = null;
+
+      console.log('clAnalyzeMeasurements: success, found', validation.measurements.length, 'measurements');
+
+      // Mostrar panel de confirmación
+      clShowMeasurementPanel(validation.measurements);
+
+    } catch (e) {
+      console.error('clAnalyzeMeasurements error:', e.message);
+      _measurementAnalysisState.activeRequest = null;
+      clShowMeasurementError('Network error: ' + e.message);
+    }
+  }, 1000); // Debounce: 1 segundo
+}
+
+// Muestra error en interfaz
+function clShowMeasurementError(message) {
+  console.error('[Measurement Error]', message);
+  // TODO: mostrar toast o panel de error
+  toast('⚠️ Measurement analysis error: ' + message);
+}
+
+// Handlers testeable para botones del panel de medidas
+function clMeasurementAddDraft() {
+  if (!_measurementDraftState.working) return;
+  _measurementDraftState.working.push({
+    name: 'Other',
+    value: 0,
+    unit: 'in',
+    source: 'manual',
+    confidence: 'low'
+  });
+  if (_measurementDraftState.render) _measurementDraftState.render();
+}
+
+function clMeasurementRetry() {
+  if (_measurementDraftState.overlay) _measurementDraftState.overlay.remove();
+  _measurementAnalysisState.latestResponse = null;
+  clAnalyzeMeasurements();
+}
+
+function clMeasurementConfirmDraft() {
+  if (!_measurementDraftState.working) return;
+  const workingMeasurements = _measurementDraftState.working;
+
+  // Validar todas las filas
+  const errors = [];
+  workingMeasurements.forEach((m, idx) => {
+    if (!m.name || m.name.trim() === '') errors.push(`Row ${idx + 1}: name is required`);
+    if (!isFinite(m.value) || m.value <= 0) errors.push(`Row ${idx + 1}: value must be > 0`);
+    if (m.unit !== 'in' && m.unit !== 'cm') errors.push(`Row ${idx + 1}: unit must be in or cm`);
+  });
+
+  if (errors.length > 0) {
+    alert('Cannot confirm:\n\n' + errors.join('\n'));
+    return;
+  }
+
+  // Guardar copia independiente
+  clSaveMeasurements(JSON.parse(JSON.stringify(workingMeasurements)));
+  clMeasurementClosePanel();
+  toast('✅ ' + workingMeasurements.length + ' measurement(s) confirmed');
+}
+
+function clMeasurementCancelDraft() {
+  clMeasurementClosePanel();
+}
+
+function clMeasurementClosePanel() {
+  if (_measurementDraftState.overlay) {
+    _measurementDraftState.overlay.remove();
+  }
+  _measurementDraftState.working = [];
+  _measurementDraftState.overlay = null;
+  _measurementDraftState.render = null;
+}
+
+// Muestra panel editable de confirmación de medidas
+function clShowMeasurementPanel(measurements) {
+  if (!measurements || !Array.isArray(measurements) || measurements.length === 0) {
+    clShowMeasurementError('No measurements to confirm');
+    return;
+  }
+
+  // Copia temporal para edición (no toca cl.measurements hasta Confirm)
+  let workingMeasurements = JSON.parse(JSON.stringify(measurements));
+  const originalGeneration = _measurementAnalysisState.latestGenerationId || 0;
+
+  // Crear overlay modal
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  // Helper para escapar HTML
+  const escapeHtml = (s) => {
+    if (typeof s !== 'string') return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  // Construir tabla de medidas
+  const buildTable = () => {
+    return workingMeasurements.map((m, idx) => {
+      const lowConfidenceClass = m.confidence === 'low' ? 'style="background:rgba(255,165,0,0.15);border-left:3px solid #ffa500"' : '';
+      return `
+      <tr ${lowConfidenceClass}>
+        <td style="padding:12px;text-align:center;font-size:11px;color:var(--mu);border-bottom:1px solid var(--sf2)">${idx + 1}</td>
+        <td style="padding:12px;border-bottom:1px solid var(--sf2)">
+          <input type="text" value="${escapeHtml(m.name)}" data-idx="${idx}" data-field="name"
+            style="width:100%;border:1px solid var(--sf2);border-radius:4px;padding:6px;font-size:12px;background:var(--sf1);color:var(--tx);box-sizing:border-box" />
+        </td>
+        <td style="padding:12px;border-bottom:1px solid var(--sf2)">
+          <input type="number" value="${escapeHtml(String(m.value))}" step="0.1" data-idx="${idx}" data-field="value"
+            style="width:100%;border:1px solid var(--sf2);border-radius:4px;padding:6px;font-size:12px;background:var(--sf1);color:var(--tx);box-sizing:border-box" />
+        </td>
+        <td style="padding:12px;border-bottom:1px solid var(--sf2)">
+          <select data-idx="${idx}" data-field="unit" style="width:100%;border:1px solid var(--sf2);border-radius:4px;padding:6px;font-size:12px;background:var(--sf1);color:var(--tx);box-sizing:border-box">
+            <option value="in" ${m.unit === 'in' ? 'selected' : ''}>in</option>
+            <option value="cm" ${m.unit === 'cm' ? 'selected' : ''}>cm</option>
+          </select>
+        </td>
+        <td style="padding:12px;text-align:center;font-size:11px;color:var(--mu);border-bottom:1px solid var(--sf2)">${escapeHtml(m.source)}</td>
+        <td style="padding:12px;text-align:center;font-size:11px;color:var(--mu);border-bottom:1px solid var(--sf2)">
+          <span style="${m.confidence === 'low' ? 'color:#ffa500;font-weight:bold' : ''}">${escapeHtml(m.confidence)}</span>
+        </td>
+        <td style="padding:12px;text-align:center;border-bottom:1px solid var(--sf2)">
+          <button onclick="event.stopPropagation()" data-idx="${idx}" class="cl-del-meas"
+            style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--dw);padding:4px">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  };
+
+  const render = () => {
+    overlay.innerHTML = `
+    <div style="background:var(--bg);border-radius:16px;width:100%;max-width:900px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+      <!-- Header -->
+      <div style="padding:24px;border-bottom:1px solid var(--sf2);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--tx)">Confirm Measurements</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:4px">${workingMeasurements.length} measurement(s) detected · Edit below, then confirm</div>
+        </div>
+        <button onclick="this.closest('[style*=\"position:fixed\"]').remove()"
+          style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--mu)">✕</button>
+      </div>
+
+      <!-- Table -->
+      <div style="padding:20px;overflow-x:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--sf2)">
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">#</th>
+              <th style="padding:10px;text-align:left;font-weight:bold;color:var(--mu)">Name</th>
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">Value</th>
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">Unit</th>
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">Source</th>
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">Conf.</th>
+              <th style="padding:10px;text-align:center;font-weight:bold;color:var(--mu)">Del</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildTable()}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Add Manual Row -->
+      <div style="padding:16px;border-top:1px solid var(--sf2);background:var(--sf1)">
+        <button onclick="event.stopPropagation()" class="cl-add-meas"
+          style="width:100%;background:none;border:1px dashed var(--mu);border-radius:8px;padding:10px;color:var(--mu);font-size:13px;cursor:pointer">
+          + Add Measurement
+        </button>
+      </div>
+
+      <!-- Footer with buttons -->
+      <div style="padding:20px;border-top:1px solid var(--sf2);display:flex;gap:10px;flex-wrap:wrap-reverse;justify-content:flex-end">
+        <button onclick="event.stopPropagation()"class="cl-cancel-btn"
+          style="flex:1;min-width:120px;background:none;border:1px solid var(--sf2);border-radius:10px;padding:12px;color:var(--mu);font-size:13px;cursor:pointer;font-weight:600">
+          Cancel
+        </button>
+        <button class="cl-retry-btn" onclick="event.stopPropagation()"
+          style="flex:1;min-width:120px;background:none;border:1px solid var(--gd);border-radius:10px;padding:12px;color:var(--gd);font-size:13px;cursor:pointer;font-weight:600">
+          🔄 Retry Analysis
+        </button>
+        <button class="cl-confirm-btn" onclick="event.stopPropagation()"
+          style="flex:1;min-width:120px;background:var(--sv);border:none;border-radius:10px;padding:12px;color:#000;font-size:13px;cursor:pointer;font-weight:700">
+          ✓ Confirm Measurements
+        </button>
+      </div>
+    </div>`;
+
+    // Attach event listeners
+    attachModalListeners();
+  };
+
+  const attachModalListeners = () => {
+    // Edit fields
+    overlay.querySelectorAll('[data-field]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        const field = e.target.dataset.field;
+        if (field === 'value') {
+          const num = parseFloat(e.target.value);
+          if (isFinite(num) && num > 0) {
+            workingMeasurements[idx].value = num;
+          } else {
+            e.target.value = workingMeasurements[idx].value;
+          }
+        } else {
+          workingMeasurements[idx][field] = e.target.value;
+        }
+      });
+    });
+
+    // Delete measurement
+    overlay.querySelectorAll('.cl-del-meas').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        workingMeasurements.splice(idx, 1);
+        render();
+      });
+    });
+
+    // Add manual measurement
+    const addBtn = overlay.querySelector('.cl-add-meas');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        workingMeasurements.push({
+          name: 'Other',
+          value: 0,
+          unit: 'in',
+          source: 'manual',
+          confidence: 'low'
+        });
+        render();
+      });
+    }
+
+    // Retry analysis
+    const retryBtn = overlay.querySelector('.cl-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        overlay.remove();
+        _measurementAnalysisState.latestResponse = null;
+        clAnalyzeMeasurements();
+      });
+    }
+
+    // Confirm measurements
+    const confirmBtn = overlay.querySelector('.cl-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        // Validar todas las filas
+        const errors = [];
+        workingMeasurements.forEach((m, idx) => {
+          if (!m.name || m.name.trim() === '') errors.push(`Row ${idx + 1}: name is required`);
+          if (!isFinite(m.value) || m.value <= 0) errors.push(`Row ${idx + 1}: value must be > 0`);
+          if (m.unit !== 'in' && m.unit !== 'cm') errors.push(`Row ${idx + 1}: unit must be in or cm`);
+        });
+
+        if (errors.length > 0) {
+          alert('Cannot confirm:\n\n' + errors.join('\n'));
+          return;
+        }
+
+        // Guardar copia independiente
+        clSaveMeasurements(JSON.parse(JSON.stringify(workingMeasurements)));
+        overlay.remove();
+        toast('✅ ' + workingMeasurements.length + ' measurement(s) confirmed');
+      });
+    }
+
+    // Cancel button
+    const cancelBtn = overlay.querySelector('.cl-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        overlay.remove();
+      });
+    }
+
+    // Close on overlay click (but not on content)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+  };
+
+  document.body.appendChild(overlay);
+  render();
+}
+
+// Guarda medidas confirmadas desde el panel
+function clSaveMeasurements(confirmed) {
+  if (!Array.isArray(confirmed) || confirmed.length === 0) {
+    console.log('clSaveMeasurements: no measurements to save');
+    return;
+  }
+
+  cl.measurements = confirmed;
+  console.log('clSaveMeasurements: saved', confirmed.length, 'measurements');
+}
+
+// Agrega medidas confirmadas a la descripción
+function clAddMeasurementsToDesc(html) {
+  if (!CL_MEASUREMENT_AI_ENABLED || !cl.measurements || cl.measurements.length === 0) {
+    return html;
+  }
+
+  // Formato: "Measurements are approximate: Pit to Pit: 20.5 in · Length: 28 in"
+  const items = cl.measurements.map(m => {
+    return m.name + ': ' + m.value + ' ' + m.unit;
+  });
+
+  const measurementLine = 'Measurements are approximate: ' + items.join(' · ');
+  return html + `<p><strong>Measurements:</strong><br>${measurementLine}</p>`;
+}
+
 // ── EBAY PREFILL TEMPLATE EXPORT ──────────────────────────────
 // Columnas: SKU | Photo URLs | Title | Category | Aspects
 function clBuildAspects() {
@@ -6726,7 +7587,7 @@ function clBuildEbayRow(photoUrls) {
   const desc  = document.getElementById('cl-desc-display') ? document.getElementById('cl-desc-display').innerHTML : '';
   const dept  = clDept();
   const priceEl = document.getElementById('cl-price-input');
-  return {
+  const row = {
     sku:        cl.sku || '',
     photos:     photoUrls || '',
     title:      title,
@@ -6764,6 +7625,13 @@ function clBuildEbayRow(photoUrls) {
     weightTotalLb: (function(){ var t = clWeightTotalLb(); return t > 0 ? t.toFixed(2) : ''; })(),
     weightLabel: clWeightLabel(),
   };
+
+  // SOLO con flag activo y medidas confirmadas: agregar copia serializable
+  if (CL_MEASUREMENT_AI_ENABLED && cl.measurements && cl.measurements.length > 0) {
+    row.measurements = JSON.parse(JSON.stringify(cl.measurements));
+  }
+
+  return row;
 }
 
 // Extensión del esquema 2. Se aplica SOLO con el flag encendido y solo AÑADE

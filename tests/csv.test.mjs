@@ -41,8 +41,9 @@ const CSV_LEGACY_REF = 'e121a37e0d1e52d4';          // 1159 bytes
 const CSV_LEGACY_MIXTO_REF = '93c76186b50a8945';    // 1280 bytes
 
 // Cuerpo de cada funcion protegida en el PASO 4.
+// ⚠️ clBuildEbayRow fue modificado en PASO 8 para agregar measurements cuando flag=true
 const HASH_FN = {
-  'clBuildEbayRow': '030ae49c5e7d0fc845085969491d0ca0',
+  'clBuildEbayRow': '637d1a128765e19d565e9edbb254c077',
   'clBuildAspects': '8e5699b198d0c5758b16f064e4a7c248',
   'clGetEbayCategoryId': '74e0fca979b60182ef09303a46c0cdcd',
   'clBuildEbayCategory': '61d39a3db5242ae2883e9c42e95d1458',
