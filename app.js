@@ -6076,6 +6076,52 @@ function clCondShort() {
   return map[cl.condition] || cl.condition || 'Used';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TÍTULO NWOT DUPLICADO — arreglo puntual, separado del PASO 7
+//
+// Causa exacta: `cond` (la forma corta, "NWOT") ya quedaba en el título desde
+// el arranque de buildClothingTitle (viene de `clCondShort()` dentro de
+// `parts`). Más abajo, el relleno de 80 caracteres agregaba TAMBIÉN la forma
+// larga ("New Without Tags") porque el chequeo de "¿ya aparece?" solo
+// comparaba esa cadena larga contra el título — nunca contra su forma corta
+// equivalente. Con espacio suficiente, el resultado terminaba en
+// "... NWOT New Without Tags": la condición mencionada dos veces.
+//
+// Se corrige en dos capas:
+//   1) más abajo, _condLong deja de incluir NWOT — la forma corta ya alcanza,
+//      así que nunca hace falta agregar la larga (nunca puede faltar: `cond`
+//      siempre la puso primero);
+//   2) clColapsarNwotRepetido(): red de seguridad final, solo para NWOT. Si
+//      por cualquier otra vía las dos formas terminaran conviviendo en el
+//      texto (por ejemplo un título que llegue de Claude ya así armado), deja
+//      sólo la forma corta. También colapsa una misma forma repetida
+//      ("NWOT NWOT"). Pura: no lee `cl`, no toca descripción, medidas, CSV,
+//      taxonomía, exportación ni localStorage.
+//
+// Deliberadamente NO se toca NWT ni las demás condiciones: no se pidió y
+// clColapsarNwotRepetido() nunca se invoca para ellas.
+// ═══════════════════════════════════════════════════════════════════════════
+function clDejarUnaAparicion(texto, patronSinG) {
+  var flags = patronSinG.flags.indexOf('g') === -1 ? patronSinG.flags + 'g' : patronSinG.flags;
+  var re = new RegExp(patronSinG.source, flags);
+  var visto = false;
+  return texto.replace(re, function (m) { if (visto) return ''; visto = true; return m; });
+}
+
+function clColapsarNwotRepetido(titulo) {
+  var t = String(titulo || '');
+  var reCorta = /\bNWOT\b/i;
+  var reLarga = /\bNew\s+Without\s+Tags\b/i;
+  if (reCorta.test(t) && reLarga.test(t)) {
+    // Aparecen las dos formas: se conserva la corta (ahorra caracteres), se
+    // quitan TODAS las apariciones de la larga.
+    t = t.replace(new RegExp(reLarga.source, 'gi'), '').replace(/\s+/g, ' ').trim();
+  }
+  t = clDejarUnaAparicion(t, reCorta);
+  t = clDejarUnaAparicion(t, reLarga);
+  return t.replace(/\s+/g, ' ').trim();
+}
+
 // Fallback title sin AI — optimizado para 80 chars
 function buildClothingTitle() {
   const cond  = clCondShort();
@@ -6109,10 +6155,13 @@ function buildClothingTitle() {
   if (cl.outerMaterial) _extras.push(cl.outerMaterial);
   if (cl.activity) _extras.push(cl.activity);
   if (cl.style && cl.style !== 'Classic') _extras.push(cl.style);
-  // La forma larga de la condición es muy buscada ("new without tags"),
-  // pero solo si sobra espacio suficiente para escribirla completa.
-  var _condLong = cl.condition === 'NWOT' ? 'New Without Tags'
-                : cl.condition === 'NWT'  ? 'New With Tags' : '';
+  // La forma larga de la condición es muy buscada ("new with tags"), pero
+  // solo si sobra espacio suficiente para escribirla completa.
+  // NWOT queda FUERA de este ternario a propósito: su forma corta ("NWOT")
+  // ya está siempre en `t` desde `cond` (arriba), así que agregar aquí
+  // también la forma larga SIEMPRE hubiera duplicado la condición — esa es
+  // la causa exacta del título "NWOT New Without Tags". NWT no cambia.
+  var _condLong = cl.condition === 'NWT' ? 'New With Tags' : '';
   if (_condLong) _extras.push(_condLong);
 
   for (var _i = 0; _i < _extras.length; _i++) {
@@ -6122,6 +6171,12 @@ function buildClothingTitle() {
     if (t.toLowerCase().indexOf(_cand.toLowerCase()) !== -1) continue;
     if ((t + ' ' + _cand).length <= 80) t += ' ' + _cand;
   }
+
+  // Red de seguridad final, solo para NWOT (ver el bloque de comentarios
+  // arriba de clColapsarNwotRepetido): si por cualquier otra vía las dos
+  // formas terminaran conviviendo en el texto, deja solo la corta. Nunca se
+  // aplica a NWT ni a las demás condiciones.
+  if (cl.condition === 'NWOT') t = clColapsarNwotRepetido(t);
 
   return t.substring(0,80);
 }
