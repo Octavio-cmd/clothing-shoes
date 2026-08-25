@@ -14,6 +14,12 @@ const CL_SHIP_POLICY = 'Flat:Standard Shipp(Free),Same business day';
 const CL_RET_POLICY  = '30 Day return';
 const CL_PAY_POLICY  = 'eBay Payments';
 
+// ── FLAG DE ALMACENAMIENTO PROTEGIDO (Independiente de CL_TAXONOMY_V134_ENABLED)
+// Cuando está activado: intenta POST /api/img-upload como almacenamiento principal
+// Con fallback a ImgBB y luego base64. Desactivado por defecto para preservar
+// compatibilidad: fronend y CSV quedan idénticos.
+var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = false;
+
 // ── MARCA DE VERSIÓN ────────────────────────────────────────────────────────
 // index.html carga app.js como <script src="app.js"> sin parámetro de versión,
 // así que Safari en iOS puede seguir corriendo un build viejo aunque GitHub
@@ -6391,7 +6397,139 @@ async function clTestImgbbKey() {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// ALMACENAMIENTO PROTEGIDO (POST /api/img-upload)
+// Fase 2: Almacenamiento primario con fallback a ImgBB y base64
+// ──────────────────────────────────────────────────────────────────────────────
+
+function clProtectedImageUploadEnabled() {
+  return CL_PROTECTED_IMAGE_UPLOAD_ENABLED === true;
+}
+
+async function clUploadPhotoProtected(dataUrl, slot) {
+  const token = savvyToken();
+  if (!token) {
+    console.warn('🔐 Protected upload: no token available, skipping');
+    return null;
+  }
+
+  const b64 = dataUrl ? dataUrl.split(',')[1] : null;
+  if (!b64) {
+    console.warn('🔐 Protected upload: no image data');
+    return null;
+  }
+
+  const TIMEOUT_MS = 30000;
+  const MAX_RETRIES_NETWORK = 1;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES_NETWORK; attempt++) {
+    // AUDITORÍA: Cada intento crea su propio AbortController y timer
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      console.log(`🔐 Protected upload attempt ${attempt + 1}/${MAX_RETRIES_NETWORK + 1} for ${slot}`);
+
+      const response = await fetch(SAVVY_API + '/api/img-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          image: b64,
+          name: slot
+        }),
+        signal: controller.signal
+      });
+
+      // AUDITORÍA: Timer limpiado en success
+      clearTimeout(timeoutId);
+
+      // No reintentar errores de cliente (400, 401, 413, 429)
+      if (response.status === 400 || response.status === 401 || response.status === 413 || response.status === 429) {
+        clearTimeout(timeoutId);
+        const errText = await response.text();
+        console.error(`🔐 Protected upload ${response.status}: ${errText.substring(0, 100)}`);
+        return null;
+      }
+
+      // Reintentar solo errores de servidor (5xx) o de red
+      if (response.status >= 500) {
+        console.warn(`🔐 Protected upload 5xx (${response.status}), will retry if attempts remain`);
+        if (attempt < MAX_RETRIES_NETWORK) {
+          console.log('🔐 Retrying with new signal...');
+          continue;
+        } else {
+          clearTimeout(timeoutId);
+          return null;
+        }
+      }
+
+      // Procesar respuesta exitosa (200)
+      if (response.status === 200) {
+        const data = await response.json();
+
+        // Validar estructura
+        if (data.success !== true) {
+          clearTimeout(timeoutId);
+          console.error('🔐 Protected upload: success !== true', data);
+          return null;
+        }
+
+        const url = data.url;
+        if (!url || typeof url !== 'string' || !url.startsWith('https://')) {
+          clearTimeout(timeoutId);
+          console.error('🔐 Protected upload: invalid URL in response', url);
+          return null;
+        }
+
+        console.log('✅ Protected upload OK:', url.substring(0, 60) + '...');
+        return url;
+      }
+
+      // Status inesperado pero < 500
+      clearTimeout(timeoutId);
+      const errText = await response.text();
+      console.error(`🔐 Protected upload unexpected status ${response.status}: ${errText.substring(0, 100)}`);
+      return null;
+
+    } catch(e) {
+      // AUDITORÍA: Timer limpiado en excepción
+      clearTimeout(timeoutId);
+
+      // Error de red o AbortError — reintentar si quedan intentos
+      if (e.name === 'AbortError') {
+        console.warn('🔐 Protected upload timeout');
+      } else {
+        console.warn('🔐 Protected upload network error:', e.message.substring(0, 100));
+      }
+
+      if (attempt < MAX_RETRIES_NETWORK) {
+        console.log('🔐 Retrying after network error with new signal...');
+        continue;
+      } else {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
 async function clUploadPhotoToImgBB(dataUrl, key, slotName) {
+  // Si el flag está activo, intenta almacenamiento protegido primero
+  if (clProtectedImageUploadEnabled()) {
+    console.log('🔐 Protected image upload enabled, trying first...');
+    const protectedUrl = await clUploadPhotoProtected(dataUrl, slotName);
+    if (protectedUrl) {
+      console.log('✅ Protected upload succeeded, skipping ImgBB');
+      return protectedUrl;
+    }
+    console.log('⚠️ Protected upload failed, falling back to ImgBB');
+  }
+
+  // Fallback a ImgBB (original)
   try {
     const b64 = dataUrl ? dataUrl.split(',')[1] : null;
     if (!b64) { console.warn('ImgBB: no image data'); return null; }
