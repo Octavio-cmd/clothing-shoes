@@ -6202,7 +6202,38 @@ function buildClothingDesc() {
   if (typeof clSizeType === 'function' && clSizeType() !== 'Regular') _det.push('Size Type: ' + clSizeType());
   if (cl.inseam && !/^(unspecified|unknown|n\/a)$/i.test(cl.inseam)) _det.push('Inseam: ' + cl.inseam);
   if (cl.dressLength) _det.push('Length: ' + cl.dressLength);
-  if (cl.outerMaterial) _det.push('Outer Shell: ' + cl.outerMaterial);
+
+  // ── MATERIAL, UPPER MATERIAL, OUTER SHELL MATERIAL Y SLEEVE LENGTH (v134) ──
+  // Con flag v134=true, estos campos vienen de cl.aspects y se validan contra
+  // los valores oficiales. Con flag false, Outer Shell Material usa el legado cl.outerMaterial.
+  var _v134 = typeof clTaxV134 === 'function' && clTaxV134();
+  var _res = _v134 && typeof clResolveLeaf === 'function' ? clResolveLeaf(clTaxSeleccion()) : null;
+  var _cid = _res && _res.ok ? _res.categoryId : null;
+
+  if (_v134 && _cid) {
+    // Flag v134 encendido: validar y incluir aspectos desde cl.aspects
+    var _aspects = cl.aspects || {};
+    // Material
+    if (_aspects['Material'] && typeof clAspectValido === 'function' && clAspectValido(_cid, 'Material', _aspects['Material'])) {
+      _det.push('Material: ' + _aspects['Material']);
+    }
+    // Upper Material
+    if (_aspects['Upper Material'] && typeof clAspectValido === 'function' && clAspectValido(_cid, 'Upper Material', _aspects['Upper Material'])) {
+      _det.push('Upper Material: ' + _aspects['Upper Material']);
+    }
+    // Outer Shell Material (desde v134, etiqueta completa, no usar legado cl.outerMaterial)
+    if (_aspects['Outer Shell Material'] && typeof clAspectValido === 'function' && clAspectValido(_cid, 'Outer Shell Material', _aspects['Outer Shell Material'])) {
+      _det.push('Outer Shell Material: ' + _aspects['Outer Shell Material']);
+    }
+    // Sleeve Length
+    if (_aspects['Sleeve Length'] && typeof clAspectValido === 'function' && clAspectValido(_cid, 'Sleeve Length', _aspects['Sleeve Length'])) {
+      _det.push('Sleeve Length: ' + _aspects['Sleeve Length']);
+    }
+  } else if (!_v134 && cl.outerMaterial) {
+    // Flag v134=false: usar comportamiento legado (cl.outerMaterial)
+    _det.push('Outer Shell: ' + cl.outerMaterial);
+  }
+
   if (cl.activity) _det.push('Activity: ' + cl.activity);
 
   var _who = cl.gender === 'mens'   ? "men's"

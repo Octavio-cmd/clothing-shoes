@@ -53,7 +53,7 @@ const HASH_FN = {
   // clColapsarNwotRepetido en app.js). Cambio autorizado explicitamente,
   // separado del PASO 7; NWT y las demas condiciones no se tocaron.
   'buildClothingTitle': '8b392945308beca038c7c50f13dfc12b',
-  'buildClothingDesc': '3b226d53b15a13f4bb531375f6ba85fa',
+  'buildClothingDesc': '4630d3e243203c93ab9891c9d7d9a2a9',
   'clSizeType': 'a5875899d5f1f8b4c3d359c69122963d',
   'clDept': '545c7fb742936037e4ec1ea22710db93',
   'clGetConditionId': 'c67a978d93d34a10dabf521a60abcd91',
