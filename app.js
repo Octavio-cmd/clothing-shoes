@@ -18,7 +18,7 @@ const CL_PAY_POLICY  = 'eBay Payments';
 // Cuando está activado: intenta POST /api/img-upload como almacenamiento principal
 // Con fallback a ImgBB y luego base64. Desactivado por defecto para preservar
 // compatibilidad: fronend y CSV quedan idénticos.
-var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = false;
+var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = true;
 
 // ── FLAG DE ANÁLISIS AUTOMÁTICO DE MEDIDAS (Independiente)
 // Cuando está activado: lee automáticamente meas1/meas2 mediante Claude Vision
@@ -33,7 +33,7 @@ var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = false;
 //
 // Pruebas actuales son UNITARIAS Y SIMULADAS con canvas mock, no JPEG real.
 // Ciclo completo DOM/eventos requiere navegador real (no mock).
-var CL_MEASUREMENT_AI_ENABLED = false;
+var CL_MEASUREMENT_AI_ENABLED = true;
 
 // ── MARCA DE VERSIÓN ────────────────────────────────────────────────────────
 // index.html carga app.js como <script src="app.js"> sin parámetro de versión,
@@ -59,7 +59,7 @@ let _keysLoaded = false;
 // La clave de Anthropic ya no llega al navegador: vive solo en el
 // backend. Aqui solo viaja un token de sesion firmado.
 // ══════════════════════════════════════════════════════════════
-const SAVVY_API = 'https://savvy-ebay-prices-production.up.railway.app';
+const SAVVY_API = 'https://ample-imagination-clothing-staging.up.railway.app';
 const SAVVY_MODELO = 'claude-haiku-4-5-20251001';
 
 // sessionStorage y no localStorage: los iPhone del almacen son compartidos,

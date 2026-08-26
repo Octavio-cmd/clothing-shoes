@@ -4,6 +4,7 @@
   "private": true,
   "description": "Savvy Scanner — Clothing & Shoes",
   "scripts": {
+    "start": "node server.js",
     "test": "node --test tests/*.test.mjs",
     "build:taxonomy": "node tools/build-taxonomy.mjs",
     "verify:taxonomy": "node tools/verify-taxonomy.mjs"
