@@ -2542,8 +2542,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(!localStorage.getItem('savvy_ebay_id'))localStorage.setItem('savvy_ebay_id',DEF_EBAY);
 
   const cfgBtn=$('cfgBtn');
-  cfgBtn.addEventListener('touchend',e=>{e.preventDefault();openCfgWithPin();});
-  cfgBtn.addEventListener('click',openCfgWithPin);
+  if(cfgBtn){
+    cfgBtn.addEventListener('touchend',e=>{e.preventDefault();openCfgWithPin();});
+    cfgBtn.addEventListener('click',openCfgWithPin);
+  }
   $('cfgX').addEventListener('click',closeCfg);
 
   const camBtn=$('camBtn');

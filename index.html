@@ -1235,20 +1235,20 @@ function showAlgopixError(message) {
 // IndexedDB para persistencia real
 // ============================================
 
-const DB_NAME = 'SavvyConfig';
-const STORE_NAME = 'imgbb_config';
+const LEGACY_IMGBB_DB_NAME = 'SavvyConfig';
+const LEGACY_IMGBB_STORE_NAME = 'imgbb_config';
 
 function openIndexedDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    
+    const request = indexedDB.open(LEGACY_IMGBB_DB_NAME, 1);
+
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    
+
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
+      if (!db.objectStoreNames.contains(LEGACY_IMGBB_STORE_NAME)) {
+        db.createObjectStore(LEGACY_IMGBB_STORE_NAME);
       }
     };
   });
