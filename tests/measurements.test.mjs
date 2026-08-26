@@ -1440,17 +1440,31 @@ test('Measurements Analysis - Integration Suite', async (t) => {
   });
 
   // ════════════════════════════════════════════════════════════════
-  // GRUPO 18: Verificación de Flags en Producción
+  // GRUPO 18: Verificación de Flags
+  //
+  // RAMA staging/clothing-ai-measurements:
+  //   - CL_MEASUREMENT_AI_ENABLED debe ser true (activado para staging)
+  //   - CL_PROTECTED_IMAGE_UPLOAD_ENABLED debe ser true (activado para staging)
+  //   - CL_TAXONOMY_V134_ENABLED debe ser false (siempre desactivado)
+  //   - SAVVY_API debe apuntar al backend de staging
+  //   - WORKER debe permanecer intacto (sin cambios)
+  //
+  // RAMA main y fix/ebay-taxonomy-v134:
+  //   - CL_MEASUREMENT_AI_ENABLED debe ser false (producción)
+  //   - CL_PROTECTED_IMAGE_UPLOAD_ENABLED debe ser false (producción)
+  //   - CL_TAXONOMY_V134_ENABLED debe ser false (siempre)
   // ════════════════════════════════════════════════════════════════
 
-  await t.test('18.1: CL_MEASUREMENT_AI_ENABLED es false en el archivo publicado', () => {
-    assert.match(APP, /var CL_MEASUREMENT_AI_ENABLED = false;/, 'Flag should be defined as false');
-    assert.equal(/CL_MEASUREMENT_AI_ENABLED\s*=\s*true/.test(APP), false, 'Flag should never be set to true');
+  await t.test('18.1: CL_MEASUREMENT_AI_ENABLED es true en staging', () => {
+    // En staging, el flag debe estar activado para pruebas de IA
+    assert.match(APP, /var CL_MEASUREMENT_AI_ENABLED = true;/, 'Flag should be defined as true');
+    assert.equal(/var\s+CL_MEASUREMENT_AI_ENABLED\s*=\s*false/.test(APP), false, 'Variable definition should not be false in staging');
   });
 
-  await t.test('18.2: CL_PROTECTED_IMAGE_UPLOAD_ENABLED es false en el archivo publicado', () => {
-    assert.match(APP, /var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = false;/, 'Flag should be defined as false');
-    assert.equal(/CL_PROTECTED_IMAGE_UPLOAD_ENABLED\s*=\s*true/.test(APP), false, 'Flag should never be set to true');
+  await t.test('18.2: CL_PROTECTED_IMAGE_UPLOAD_ENABLED es true en staging', () => {
+    // En staging, el almacenamiento protegido debe estar activado para pruebas
+    assert.match(APP, /var CL_PROTECTED_IMAGE_UPLOAD_ENABLED = true;/, 'Flag should be defined as true');
+    assert.equal(/var\s+CL_PROTECTED_IMAGE_UPLOAD_ENABLED\s*=\s*false/.test(APP), false, 'Variable definition should not be false in staging');
   });
 
   await t.test('18.3: CL_TAXONOMY_V134_ENABLED es false en el archivo publicado', () => {
