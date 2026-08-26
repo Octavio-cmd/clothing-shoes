@@ -35,8 +35,10 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  // Decodificar y normalizar ruta
-  let urlPath = decodeURIComponent(req.url);
+  // Parse URL de forma segura, extrayendo solo pathname
+  // Ignora query strings (?...) y fragments (#...)
+  const requestUrl = new URL(req.url, 'http://localhost');
+  let urlPath = decodeURIComponent(requestUrl.pathname);
 
   // Bloquear path traversal
   if (urlPath.includes('..')) {
