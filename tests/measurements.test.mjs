@@ -53,7 +53,7 @@ test('Measurements Analysis - Integration Suite', async (t) => {
 
     const html = construirDescripcion(sb);
     assert(!html.includes('Measurements are approximate'), 'Description should not include measurements when flag is false');
-    assert(html.includes('Authentic Nike'), 'Description should contain brand');
+    assert(html.includes('Nike'), 'Description should contain brand');
   });
 
   await t.test('1.3: Flag false → clTakePhoto conserva comportamiento', async () => {

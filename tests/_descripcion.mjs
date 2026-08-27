@@ -71,7 +71,7 @@ const taxonomyInit = new Promise((resolve, reject) => {
 // Esperar a que la taxonomía se cargue
 await taxonomyInit;
 
-const FNS = ['buildClothingDesc', 'clCondText', 'clCleanColor', 'clSizeType'].map((f) => extraerFuncion(APP, f)).join('\n');
+const FNS = ['buildClothingDesc', 'clCondText', 'clCleanColor', 'clSizeType', 'clBuildConditionText'].map((f) => extraerFuncion(APP, f)).join('\n');
 
 // cl por defecto: NWOT, sin extras -- cada prueba pisa lo que necesite.
 const CL_BASE = {

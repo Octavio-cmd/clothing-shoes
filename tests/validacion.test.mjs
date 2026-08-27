@@ -29,7 +29,7 @@ const LS = (s) => s.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
 // autocontenido del resto sin cambiar el comportamiento. A partir de aqui se
 // congela la funcion COMPLETA como una sola unidad: cualquier cambio futuno
 // que no sea un nuevo paso explicitamente autorizado debe mover este hash.
-const HASH_EXPORT_PASO6 = '489c2db5336cedf3047f53d4276a5022';
+const HASH_EXPORT_PASO6 = '3124080501cd1f02c58be9ba3767f20d';
 const HASH_LOCALSTORAGE = 'b077e7b0c8ba2f540a10fa8d0732e1bf';   // 82 llamadas, ordenadas
 const HASH_LS_ESCRITURAS = '1a0aaa0a0c856aaa24f9ccb5893128e7';  // 27 escrituras, ordenadas
 
@@ -53,7 +53,7 @@ const HASH_FN = {
   // clColapsarNwotRepetido en app.js). Cambio autorizado explicitamente,
   // separado del PASO 7; NWT y las demas condiciones no se tocaron.
   'buildClothingTitle': '8b392945308beca038c7c50f13dfc12b',
-  'buildClothingDesc': '4630d3e243203c93ab9891c9d7d9a2a9',
+  'buildClothingDesc': 'c6f980703620e0fffe923396d6445969',
   'clSizeType': 'a5875899d5f1f8b4c3d359c69122963d',
   'clDept': '545c7fb742936037e4ec1ea22710db93',
   'clGetConditionId': 'c67a978d93d34a10dabf521a60abcd91',

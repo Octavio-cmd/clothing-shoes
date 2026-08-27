@@ -54,7 +54,8 @@ function montar(APP, taxSrc, sess, flagOn, datos) {
     return '';
   };
   const cargarFunciones = () => {
-    for (const n of ['clNormalizePrice','clTaxV134','clSepararPorEsquema','clCsvPrefijo',
+    for (const n of ['clIsTShirt','clBuildConditionText','clBuildCsvMeasurements',
+                     'clNormalizePrice','clTaxV134','clSepararPorEsquema','clCsvPrefijo',
                      'clCsvHeaderV134','clCsvRowV134','clBuildCsvV134','clCsvQ','clCsvNombre',
                      'clEntregarCsv','clExportEbayCSVv134',
                      'clValidarFilaV134','clValidarLoteV134','clMostrarBloqueoExport',

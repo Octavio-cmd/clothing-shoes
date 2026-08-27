@@ -4368,6 +4368,67 @@ function clAutoSKU() {
   if (el) el.textContent = sku;
 }
 
+// ── HELPERS COMPARTIDOS (Producción + Tests) ──────────────────────────
+
+/**
+ * Determina si un título corresponde a T-Shirt usando patrones positivos.
+ * Solo reconoce: t-shirt, tshirt, t shirt, graphic tee, graphic t-shirt, graphic tshirt,
+ * graphic t shirt, y tee como palabra completa.
+ * @param {string} title - Título del producto
+ * @returns {boolean} true si es T-Shirt
+ */
+function clIsTShirt(title) {
+  if (!title) return false;
+  const titleLower = String(title).toLowerCase();
+  return /\b(t[\s-]?shirt|tshirt|graphic\s+(?:t[\s-]?shirt|tshirt|tee)|tee)\b/i.test(titleLower);
+}
+
+/**
+ * Construye el texto de condición de forma neutral, sin inferencias.
+ * @param {string} condition - Código de condición (NWT, NWOT, EXCEL, etc.)
+ * @returns {string} Texto de condición neutral
+ */
+function clBuildConditionText(condition) {
+  let text = '';
+  if (condition === 'NWT') {
+    text = 'Original tags attached. ';
+  } else if (condition === 'NWOT') {
+    text = 'Tags are not attached. ';
+  }
+  // Para otras condiciones, no añadir afirmaciones automáticas
+  text += 'Please review all photos for condition details.';
+  return text;
+}
+
+/**
+ * Construye el objeto de medidas/campos para CSV exportación.
+ * Valida cada campo de forma independiente y usa defaults eBay si es necesario.
+ * @param {object} record - Objeto con propiedades: inseam, dressLength, outerMaterial, activity, shoeWidth
+ * @param {object} needs - Objeto con propiedades: needsInseam, needsDressLen, needsOuter, needsActivity, needsWidth
+ * @returns {object} { inseam, dressLength, outerMaterial, activity, shoeWidth } para CSV
+ */
+function clBuildCsvMeasurements(record, needs) {
+  function asp(v) {
+    var s = String(v == null ? '' : v).trim();
+    return /^(unspecified|unknown|n\/a|na|none|not specified|select|--)$/i.test(s) ? '' : s;
+  }
+
+  needs = needs || {};
+  const needsInseam = needs.needsInseam !== false;
+  const needsDressLen = needs.needsDressLen !== false;
+  const needsOuter = needs.needsOuter !== false;
+  const needsActivity = needs.needsActivity !== false;
+  const needsWidth = needs.needsWidth !== false;
+
+  return {
+    inseam: asp(record.inseam) || (needsInseam ? (record.type === 'Shorts' ? '9"' : '30"') : ''),
+    dressLength: asp(record.dressLength) || (needsDressLen ? 'Knee Length' : ''),
+    outerMaterial: asp(record.outerMaterial) || (needsOuter ? 'Polyester' : ''),
+    activity: asp(record.activity) || (needsActivity ? 'General Fitness' : ''),
+    shoeWidth: asp(record.shoeWidth) || (needsWidth ? 'Regular (B/M)' : '')
+  };
+}
+
 // ── Barcode Scanner — Clothing Module ─────────────────────────
 
 function clStartBarcodeScanner() {
@@ -4462,7 +4523,7 @@ async function clLookupBarcode(upc) {
     else if (titleLower.includes('sleeveless')) category = 'Sleeveless';
     else if (titleLower.includes('polo')) category = 'Polo';
     else if (titleLower.includes('shacket')) category = 'Shacket';
-    else if (titleLower.includes('shirt') || titleLower.includes('tee') || titleLower.includes('t-shirt')) category = 'T-Shirt';
+    else if (clIsTShirt(title)) category = 'T-Shirt';
     else if (titleLower.includes('vest')) category = 'Vest';
     else if (titleLower.includes('activewear')) category = 'Activewear';
     else if (titleLower.includes('swimwear') || titleLower.includes('swimsuit') || titleLower.includes('bikini')) category = 'Swimwear';
@@ -6414,16 +6475,12 @@ function buildClothingDesc() {
            : cl.gender === 'womens' ? "women's"
            : cl.gender === 'kids'   ? "kids'" : '';
 
-  let opening = `Authentic ${brand} ${_who} ${category}`.replace(/\s+/g,' ').trim() + '. ';
+  let opening = `${brand} ${_who} ${category}`.replace(/\s+/g,' ').trim() + '. ';
   if (_det.length) opening += _det.join(' · ') + '. ';
   opening += `${cond}. Backed by fast same-business-day handling from our Lumberton, NC warehouse `;
   opening += `and a 30-day return window. See all photos for exact condition and fit.`;
   
-  let condition = `${cond}. `;
-  if(cl.condition === 'NWT') condition += `Original tags attached, never worn. Perfect pristine condition. Stored properly with no flaws, shrinkage, or damage. `;
-  else if(cl.condition === 'NWOT') condition += `Never worn or tried on. Perfect condition without tags. No wear marks or defects. `;
-  else condition += `Gently used, well maintained. No major flaws or damage. `;
-  condition += `Ready to wear immediately.`;
+  let condition = `${cond}. ${clBuildConditionText(cl.condition)}`;
   
   // ⚠️ BUG CORREGIDO (15 ago 2026): cl.defects es un ARRAY, no un string.
   // Un arreglo vacío [] es TRUTHY en JavaScript, y [] !== 'none' también es
@@ -6441,7 +6498,7 @@ function buildClothingDesc() {
   if(defects) html += `<p><strong>Defects:</strong><br>${defects}</p>`;
   html += `<p><strong>Shipping:</strong><br>Ships fast from Lumberton, NC. Most orders ship within 1 business day. Fast handling and tracking provided.</p>`;
   html += `<p><strong>Returns:</strong><br>30-day returns accepted. Buyer satisfaction is our priority.</p>`;
-  html += `<p><strong>Disclaimer:</strong><br>Please review all photos carefully before purchasing. All items are 100% authentic.</p>`;
+  html += `<p><strong>Disclaimer:</strong><br>Please review all photos carefully before purchasing. Condition details shown above.</p>`;
   
   return html;
 }
@@ -8134,15 +8191,16 @@ function clExportEbayCSV() {
       var s = String(v == null ? '' : v).trim();
       return /^(unspecified|unknown|n\/a|na|none|not specified|select|--)$/i.test(s) ? '' : s;
     }
+    var measures = clBuildCsvMeasurements(r, { needsInseam, needsDressLen, needsOuter, needsActivity, needsWidth });
     lines.push([
       'Add',r.sku||'',r.categoryId||'63861',r.title||'',r.conditionId||'1000',
       r.brand||'',r.sizeType||'Regular',r.size||'',r.department||'',asp(r.color),
       asp(r.style),asp(r.type),
-      asp(r.inseam) || (needsInseam ? (r.type === 'Shorts' ? '9"' : '30"') : ''),
-      asp(r.dressLength) || (needsDressLen ? 'Knee Length' : ''),
-      asp(r.outerMaterial) || (needsOuter ? 'Polyester' : ''),
-      asp(r.activity) || (needsActivity ? 'General Fitness' : ''),
-      asp(r.shoeWidth) || (needsWidth ? 'Regular (B/M)' : ''),
+      measures.inseam,
+      measures.dressLength,
+      measures.outerMaterial,
+      measures.activity,
+      measures.shoeWidth,
       r.photos||'',
       r.description||('<p>'+(r.title||'')+'</p>'),
       'FixedPrice','GTC',r.price||'19.99','1','1','Lumberton, NC','1',SHIP,RET,PAY,

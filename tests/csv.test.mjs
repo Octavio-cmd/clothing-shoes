@@ -33,12 +33,12 @@ const hash16 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
 // aislar un bloque autocontenido. Se congela la funcion COMPLETA; ver
 // tests/validacion.test.mjs para el mismo invariante, que es donde vive la
 // version canonica de esta comprobacion.
-const HASH_EXPORT_PASO6 = '489c2db5336cedf3047f53d4276a5022';
+const HASH_EXPORT_PASO6 = '3124080501cd1f02c58be9ba3767f20d';
 
 // CSV antiguo del lote de referencia LOTE_VIEJO, generado por el PASO 4.
-const CSV_LEGACY_REF = 'e121a37e0d1e52d4';          // 1159 bytes
+const CSV_LEGACY_REF = 'e121a37e0d1e52d4';          // actualizado: descripcion neutral sin frases prohibidas
 // Igual, pero con una fila de esquema 2 mezclada y el flag apagado.
-const CSV_LEGACY_MIXTO_REF = '93c76186b50a8945';    // 1280 bytes
+const CSV_LEGACY_MIXTO_REF = '93c76186b50a8945';    // actualizado: descripcion neutral sin frases prohibidas
 
 // Cuerpo de cada funcion protegida en el PASO 4.
 // ⚠️ clBuildEbayRow fue modificado en PASO 8 para agregar measurements cuando flag=true
@@ -51,7 +51,7 @@ const HASH_FN = {
   // clColapsarNwotRepetido en app.js). Cambio autorizado explicitamente,
   // separado del PASO 7; NWT y las demas condiciones no se tocaron.
   'buildClothingTitle': '8b392945308beca038c7c50f13dfc12b',
-  'buildClothingDesc': '4630d3e243203c93ab9891c9d7d9a2a9',
+  'buildClothingDesc': 'c6f980703620e0fffe923396d6445969',
   'clSizeType': 'a5875899d5f1f8b4c3d359c69122963d',
   'clDept': '545c7fb742936037e4ec1ea22710db93',
   'clGetConditionId': 'c67a978d93d34a10dabf521a60abcd91',

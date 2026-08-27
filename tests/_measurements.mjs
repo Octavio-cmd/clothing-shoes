@@ -441,6 +441,7 @@ export function crearSandboxMeasurements(APP, opciones) {
     'clSizeType',
     'clCleanColor',
     'clCondText',
+    'clBuildConditionText',
     'clDeletePhoto',
     'clNormalizePrice',
     'clWeightTotalLb',

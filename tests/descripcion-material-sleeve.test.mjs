@@ -269,7 +269,8 @@ describe('otros campos preservados', () => {
       defects: ['small stain'],
       aspects: { Material: 'Alpaca' }
     }, true);
-    assert.ok(contieneTexto(desc, 'Never worn or tried on'), 'debe mantener NWOT description');
+    assert.ok(contieneTexto(desc, 'Tags are not attached'), 'debe incluir NWOT description neutral (sin inferencias)');
+    assert.equal(contieneTexto(desc, 'Appears unused'), false, 'NO debe incluir "Appears unused" (inferencial)');
     assert.ok(contieneTexto(desc, 'small stain'), 'debe mantener defects');
   });
 });
