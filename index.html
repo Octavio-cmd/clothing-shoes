@@ -624,10 +624,6 @@
   <div class="ovc">
     <div class="ovh"><div class="ovt">⚙ Settings</div><button class="xb" id="cfgX">✕</button></div>
     <div id="stSt"></div><div class="dhr"></div>
-    <div class="slbl">API KEY — ANTHROPIC (CLAUDE)</div>
-    <input id="keyIn" class="ki" type="password" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
-    <button class="sv-b" onclick="saveKey()">SAVE API KEY</button>
-    <div class="dhr"></div>
     <div class="slbl">EBAY APP ID</div>
     <input id="ebayIn" class="ki" type="text" placeholder="eBay App ID..." autocomplete="off" spellcheck="false">
     <button class="sv-b" onclick="saveEbay()">SAVE EBAY ID</button>
@@ -1265,28 +1261,9 @@ async function initImgbbFromIndexedDB() {
   } catch (err) {
     console.warn('⚠️ Error leyendo IndexedDB:', err.message);
   }
-  
-  try {
-    // Fallback: intentar cargar de Railway
-    const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      if (data.key) {
-        console.log('✅ ImgBB key cargada de Railway (migrando a IndexedDB)');
-        // Guardar en IndexedDB para futuro
-        await saveToIndexedDB('imgbb_key', data.key);
-        return data.key;
-      }
-    }
-  } catch (err) {
-    console.warn('⚠️ Error obteniendo de Railway:', err.message);
-  }
-  
-  console.log('❌ No se encontró clave en IndexedDB ni Railway');
+
+  // ImgBB key must be configured manually in Settings
+  console.warn('⚠️ ImgBB key not found in IndexedDB. Configure manually in Settings.');
   return null;
 }
 

@@ -44,9 +44,8 @@ window.CL_BUILD = '2026-08-24a';
 try { console.log('[Clothing & Shoes] build ' + window.CL_BUILD); } catch(e){}
 
 const WORKER='https://savvy-ebay.octavio-9e2.workers.dev';
-const SAVVY_CONFIG='https://savvy-config-production.up.railway.app';
 const DEF_EBAY='StevenGa-SavvySca-PRD-81addb012-655f2649';
-// ── Default API keys (loaded from Railway savvy-config)
+// ── Default API keys
 let DEFAULT_PHOTOROOM_KEY = '';
 let DEFAULT_RBG_KEY = '';
 // KEY NUEVA fija — igual que en Product Scanner.
@@ -113,21 +112,11 @@ function savvySesionCaducada() {
     if (err) { err.textContent = 'Tu sesion expiro. Vuelve a entrar.'; err.style.display = 'block'; }
   } catch(e) {}
 }
-// Load keys from Railway on startup
-(async function loadKeys() {
-  try {
-    const r = await fetch(SAVVY_CONFIG + '/config');
-    if (r.ok) {
-      const d = await r.json();
-      // ⛔ NUNCA sobrescribir DEFAULT_IMGBB_KEY desde Railway:
-      // if (d.imgbb) DEFAULT_IMGBB_KEY = d.imgbb;  ← DESACTIVADO PERMANENTE
-      // d.claude ya no se lee: la clave vive solo en el backend (Fase 2).
-      if (d.sheets_url) localStorage.setItem('cl_sheets_url', d.sheets_url);
-      // drive_url: NO sobrescribir — usamos URL fija hardcodeada
-    }
-  } catch(e) { console.warn('Could not load keys from Railway savvy-config'); }
-  // Drive URL fija — siempre la correcta
+// Initialize local configuration on startup
+(function loadKeys() {
+  // Drive URL is hardcoded and set to localStorage
   localStorage.setItem('cl_drive_url', 'https://script.google.com/macros/s/AKfycbyVgEEID8dqZMymlqQMpjO7fLBMYkfj0mmcWk2ImudTy9evKGlOi4oHUc9vhcdmpFeDDQ/exec');
+  // Sheets URL is configured manually by the user via Settings (not pre-filled from service)
   _keysLoaded = true;
 })();
 // ── Login System ──────────────────────────────────────────────
@@ -455,12 +444,10 @@ function catId(n){
 const catNm=id=>({'31786':'Skin Care','60496':'Makeup','180959':'Vitamins & Supplements','67602':'Dental Care','36870':'Lip Care','11854':'Hair Care','131689':'Shampoo & Conditioner','32062':'Face Moisturizers','75655':'Yoga & Pilates','31085':'Hair Color','45258':'Hair Styling','11838':'Deodorant','11840':'Body Wash','26683':'Shaving','180345':'Fragrances','67169':'OTC Medicine','51227':'First Aid','67167':'Feminine Care','105070':'Incontinence','36478':'Nail Care','57041':'Eye & Ear Care','48619':'Batteries','44867':'Phone Cables','112529':'Headphones','14969':'Speakers','9394':'Phone Cases','293':'Consumer Electronics','20625':'Home & Garden','14308':'Food & Beverages','1281':'Pet Supplies','2984':'Baby','6000':'Automotive','888':'Sporting Goods','220':'Toys & Hobbies','19006':'LEGO Building Sets','261186':'Books','20695':'Mugs','177005':'Kitchen Knives','20654':'Cookware','20650':'Dinnerware','261068':'Toys','31788':'Body Lotions','168763':'Small Kitchen Appliances','16486':'Office Supplies','19264':'Braces & Supports','181':'Sporting Goods','1232':'Insect Repellent','261844':'Insect Repellent','26677':'BBQ & Grill Tools','20725':'Outdoor Cooking'}[id]||'Skin Care');
 
 // Settings
-function saveKey(){ toast('\u2139\uFE0F La clave de Claude ya la gestiona el servidor. No hace falta configurarla aqui.'); }
 function saveEbay(){const v=$('ebayIn').value.trim();if(!v)return;localStorage.setItem('savvy_ebay_id',v);renderSt();toast('✅ eBay ID saved');setTimeout(closeCfg,700);}
 function renderSt(){
   const k=!!savvyToken(),e=localStorage.getItem('savvy_ebay_id');
   $('stSt').innerHTML=`<div class="str"><div class="sd ${k?'ok':'no'}"></div><span>Sesión Claude: ${k?'✓ Activa':'✗ Inicia sesión'}</span></div><div class="str"><div class="sd ${e?'ok':'no'}"></div><span>eBay App ID: ${e?'✓ Configurado':'✗ No configurado'}</span></div>`;
-  if($('keyIn'))$('keyIn').placeholder='Ya no se usa: la gestiona el servidor';
   if(e)$('ebayIn').value=e;
 }
 // Settings PIN Protection (1977)
@@ -6582,25 +6569,10 @@ async function clSaveImgbbKey() {
   } else {
     console.warn('IndexedDB save failed');
   }
-  
-  try {
-    const res = await fetch('https://savvy-config-production.up.railway.app/api/imgbb-key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: v })
-    });
-    
-    if (res.ok) {
-      document.getElementById('imgbb-status').textContent = '✅ ImgBB key guardada (IndexedDB + Railway)';
-      toast('✅ Guardada');
-    } else {
-      document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB (Railway offline)';
-      toast('✅ Guardada en IndexedDB');
-    }
-  } catch (err) {
-    document.getElementById('imgbb-status').textContent = '✅ Guardada en IndexedDB';
-    toast('✅ Guardada en IndexedDB');
-  }
+
+  // Saved locally in IndexedDB and localStorage only (Railway sync removed)
+  document.getElementById('imgbb-status').textContent = '✅ Guardada localmente';
+  toast('✅ ImgBB key guardada');
 }
 
 async function clTestImgbbKey() {

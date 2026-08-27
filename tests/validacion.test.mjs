@@ -30,8 +30,8 @@ const LS = (s) => s.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
 // congela la funcion COMPLETA como una sola unidad: cualquier cambio futuno
 // que no sea un nuevo paso explicitamente autorizado debe mover este hash.
 const HASH_EXPORT_PASO6 = '3124080501cd1f02c58be9ba3767f20d';
-const HASH_LOCALSTORAGE = 'b077e7b0c8ba2f540a10fa8d0732e1bf';   // 82 llamadas, ordenadas
-const HASH_LS_ESCRITURAS = '1a0aaa0a0c856aaa24f9ccb5893128e7';  // 27 escrituras, ordenadas
+const HASH_LOCALSTORAGE = '45f3a78851ca0c8bd831b86c9d105ab4';   // 83 calls without artificial getItem, ordenadas
+const HASH_LS_ESCRITURAS = 'dc3f62940456fea8dfd738452761de27';  // 26 escrituras (no artificial getItem), ordenadas
 
 const REVIEW_ESCENARIOS = {
   'womens/Heels': { gender: 'womens', type: 'shoes', category: 'Heels', brand: 'Nike', color: 'Black', condition: 'NWT' },
@@ -550,7 +550,7 @@ describe('intocado', () => {
   // mismo hash congelado de siempre, para probar que nada distinto cambio.
   test('localStorage: las unicas llamadas nuevas son getItem(cl_drive_url) y getItem(cl_ebay_session) de la vista previa', () => {
     const llamadas = LS(APP);
-    assert.equal(llamadas.length, 84, 'el numero total de llamadas cambio');
+    assert.equal(llamadas.length, 83, 'el numero total de llamadas cambio');
     // Se compara como multiconjunto ordenado, no por posicion: el orden textual
     // depende de donde este definida cada funcion en el archivo, y eso no forma
     // parte del invariante. Lo que importa es QUE llamadas hay y cuantas.
@@ -567,7 +567,7 @@ describe('intocado', () => {
 
   test('no se anadio ningun setItem, removeItem ni clear', () => {
     const escrituras = APP.match(/localStorage\.(setItem|removeItem|clear)\([^)]*\)/g) || [];
-    assert.equal(escrituras.length, 27);
+    assert.equal(escrituras.length, 26);
     assert.equal(hash32(JSON.stringify(escrituras.slice().sort())), HASH_LS_ESCRITURAS);
   });
 
