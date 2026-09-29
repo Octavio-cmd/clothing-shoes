@@ -195,7 +195,7 @@ function clickType(toType) {
   try { get('clRenderSKU()'); } catch (e) { }
   const html = S.els.get('cl-sku').innerHTML;
   get('cl = ' + saved);
-  const m = html.match(new RegExp('<button class="cl-cond-btn[^"]*" onclick="([^"]*)"[^>]*>\\s*<div[^>]*>[^<]*</div>\\s*<div class="cond-lbl"[^>]*>' + (toType === 'shoes' ? 'Zapatos' : 'Ropa') + '<'));
+  const m = html.match(new RegExp('<button class="cl-cond-btn[^"]*"(?: data-[\\w-]+="[^"]*")* onclick="([^"]*)"[^>]*>\\s*<div[^>]*>[^<]*</div>\\s*<div class="cond-lbl"[^>]*>' + (toType === 'shoes' ? 'Zapatos' : 'Ropa') + '<'));
   if (!m) throw new Error('type button not found');
   const btn = { classList: { add() {}, remove() {} }, closest: () => ({ querySelectorAll: () => [] }) };
   S.ctx.__btn = btn;
@@ -207,7 +207,8 @@ function switchCase(from, to, brand, custom) {
   return { type: get('cl.type'), brand: get('cl.brand'), brandCustom: get('cl.brandCustom') };
 }
 
-const baseApp = stripFeature(APP);
+// Later approved Preview features are reverted first so this guard still pins the rest of app.js to 2c9d66c.
+const baseApp = stripFeature(require('./lib/revert-item-info-back.js')(APP));
 
 check(27, 'app.js parses (and inline <script> blocks in index.html)', () => {
   new vm.Script(APP, { filename: 'app.js' });

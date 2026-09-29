@@ -2952,6 +2952,48 @@ function clSetType(type) {
   if (cl.brand && !clBrandsForType(type).includes(cl.brand)) { cl.brand = ''; cl.brandCustom = ''; }
 }
 
+// Regresar a Item Type / Gender desde Item Info. Al cambiar Ropa/Zapatos (o Gender en zapatos)
+// solo se conservan los valores válidos para el destino; los demás se limpian, nunca se sustituyen.
+const CL_CAT_EXTRAS = { inseam:['Pants','Jeans','Shorts'], dressLength:['Dress','Skirt'],
+  outerMaterial:['Jacket','Coat','Vest'], swimStyle:['Swimwear'], activity:['Activewear Top','Activewear Bottom'] };
+
+function clSizeValidForType(type) {
+  if (!cl.size || cl.size === 'Custom') return true;
+  if (type === 'shoes') {  // mismas listas que clInitSizeWheel
+    const kids = cl.gender==='kids' || (cl.category && cl.category.toLowerCase().includes('kids'));
+    return (kids ? CL_SHOE_SIZES_KIDS : CL_SHOE_SIZES_US).includes(cl.size);
+  }
+  return !CL_SHOE_SIZES_US.includes(cl.size) && !CL_SHOE_SIZES_KIDS.includes(cl.size);
+}
+
+function clDropIncompatibleTypeState(type) {
+  const cats = type === 'shoes' ? CL_SHOE_CATS : CL_CATS;
+  if (cl.category && !cats.includes(cl.category)) cl.category = '';
+  Object.keys(CL_CAT_EXTRAS).forEach(k => { if (cl[k] && !CL_CAT_EXTRAS[k].includes(cl.category)) cl[k] = ''; });
+  if (type !== 'shoes' && cl.shoeWidth) cl.shoeWidth = '';
+  if (!clSizeValidForType(type)) cl.size = '';
+  const defs = type === 'shoes' ? CL_SHOE_DEFECTS : CL_DEFECTS;
+  if (Array.isArray(cl.defects)) cl.defects = cl.defects.filter(d => defs.includes(d));
+  cl._ebayTitle = null; cl._ebayDesc = null; // forzar regeneración del título
+}
+
+function clChangeType(type) {
+  const prev = cl.type || 'clothing';
+  clSetType(type);
+  if (type !== prev) clDropIncompatibleTypeState(type);
+}
+
+function clChangeGender(g) {
+  cl.gender = g;
+  if (cl.type === 'shoes' && !clSizeValidForType('shoes')) cl.size = '';
+}
+
+function clBackToType() {
+  clGo(1);
+  document.querySelectorAll('#cl-sku [data-cl-type]').forEach(b => b.classList.toggle('sel', b.dataset.clType === cl.type));
+  document.querySelectorAll('#cl-sku [data-cl-gender]').forEach(b => b.classList.toggle('sel', b.dataset.clGender === cl.gender));
+}
+
 const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter Zip','Sweatshirt','Sweater',
   'Jacket','Coat','Vest','Pants','Jeans','Shorts','Dress','Skirt',
   'Activewear Top','Activewear Bottom','Swimwear','Scrubs','Other'];
@@ -3281,7 +3323,7 @@ function clRenderSKU() {
     <div class="cl-sect" style="margin-top:16px">
       <div class="lbl">ITEM TYPE</div>
       <div style="display:flex;gap:10px;margin-top:8px">
-        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" onclick="clSetType('${t.id}');this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;padding:16px 8px">
+        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" data-cl-type="${t.id}" onclick="clChangeType('${t.id}');this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;padding:16px 8px">
           <div style="font-size:26px;margin-bottom:5px">${t.icon}</div>
           <div class="cond-lbl" style="font-size:13px">${t.label}</div>
         </button>`).join('')}
@@ -3291,7 +3333,7 @@ function clRenderSKU() {
     <div class="cl-sect" style="margin-top:12px">
       <div class="lbl">GENDER</div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        ${CL_GENDER_OPTIONS.map(g=>`<button class="cl-cond-btn${cl.gender===g.id?' sel':''}" onclick="cl.gender='${g.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;min-width:60px;padding:14px 8px">
+        ${CL_GENDER_OPTIONS.map(g=>`<button class="cl-cond-btn${cl.gender===g.id?' sel':''}" data-cl-gender="${g.id}" onclick="clChangeGender('${g.id}');this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;min-width:60px;padding:14px 8px">
           <div style="font-size:22px;margin-bottom:4px">${g.icon}</div>
           <div class="cond-lbl" style="font-size:12px">${g.label}</div>
         </button>`).join('')}
@@ -3854,6 +3896,7 @@ function clRenderAttr() {
   el.innerHTML = `
     <div class="cl-step-hdr"><h2>Item Info</h2><p>Fast — tap to select</p></div>
     <div class="cl-prog">${[1,2,3,4,5].map(i=>`<div class="cl-step-dot${i<=2?(i<2?' done':' active'):''}" id="cl-step-${i}"></div>`).join('<div class="cl-step-line"></div>')}</div>
+    <button class="ag-btn" id="cl-attr-back-top" onclick="clBackToType()" style="margin-bottom:12px">← Regresar</button>
 
     <div class="cl-sect">
       <div class="lbl">BRAND</div>
@@ -3968,7 +4011,7 @@ function clRenderAttr() {
     </div>
 
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="ag-btn" onclick="clGo(1)" style="flex:1">← Back</button>
+      <button class="ag-btn" onclick="clBackToType()" style="flex:1">← Back</button>
       <button class="add-btn" onclick="clStep2Next()" style="flex:2;margin-bottom:0">Continue →</button>
     </div>`;
 }
