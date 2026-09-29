@@ -2936,6 +2936,22 @@ const CL_BRANDS = ['Nike','Adidas','Under Armour','Champion','Puma','Reebok','Ne
   'Hollister','Abercrombie','Calvin Klein','Tommy Hilfiger','Ralph Lauren','Polo Ralph Lauren','Lauren Ralph Lauren','Nautica',
   'Columbia','North Face','Carhartt','Patagonia','Carter\'s','OshKosh','Other'];
 
+// Marcas de zapatos (solo cuando cl.type==='shoes'); CL_BRANDS sigue siendo la de ropa
+const CL_SHOE_BRANDS = ['Nike','Jordan','Adidas','New Balance','Skechers','Puma','Reebok','Under Armour',
+  'ASICS','HOKA','On','Brooks','Saucony','Converse','Vans','Fila','Crocs','UGG','Timberland','Birkenstock',
+  'Merrell','Salomon','K-Swiss','Keds','Mizuno','Havaianas','Steve Madden','Michael Kors','Clarks',
+  'Dr. Martens','Cole Haan','Hey Dude','Ariat','Other'];
+
+function clBrandsForType(type) {
+  return type === 'shoes' ? CL_SHOE_BRANDS : CL_BRANDS;
+}
+
+// Cambiar Ropa/Zapatos: la marca se conserva solo si existe en la lista destino; si no, se limpia (nunca se elige otra)
+function clSetType(type) {
+  cl.type = type;
+  if (cl.brand && !clBrandsForType(type).includes(cl.brand)) { cl.brand = ''; cl.brandCustom = ''; }
+}
+
 const CL_CATS = ['T-Shirt','Shirt','Shacket','Polo','Tank Top','Hoodie','Quarter Zip','Sweatshirt','Sweater',
   'Jacket','Coat','Vest','Pants','Jeans','Shorts','Dress','Skirt',
   'Activewear Top','Activewear Bottom','Swimwear','Scrubs','Other'];
@@ -3265,7 +3281,7 @@ function clRenderSKU() {
     <div class="cl-sect" style="margin-top:16px">
       <div class="lbl">ITEM TYPE</div>
       <div style="display:flex;gap:10px;margin-top:8px">
-        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" onclick="cl.type='${t.id}';this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;padding:16px 8px">
+        ${CL_TYPE_OPTIONS.map(t=>`<button class="cl-cond-btn${cl.type===t.id?' sel':''}" onclick="clSetType('${t.id}');this.closest('div').querySelectorAll('button').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')" style="flex:1;padding:16px 8px">
           <div style="font-size:26px;margin-bottom:5px">${t.icon}</div>
           <div class="cond-lbl" style="font-size:13px">${t.label}</div>
         </button>`).join('')}
@@ -3842,7 +3858,7 @@ function clRenderAttr() {
     <div class="cl-sect">
       <div class="lbl">BRAND</div>
       <div class="cl-chips" id="brand-chips">
-        ${CL_BRANDS.map(b=>`<button class="cl-chip${cl.brand===b?' sel':''}" data-b="${b.replace(/"/g,'&quot;')}" onclick="clSetBrand(this.dataset.b)">${b}</button>`).join('')}
+        ${clBrandsForType(cl.type).map(b=>`<button class="cl-chip${cl.brand===b?' sel':''}" data-b="${b.replace(/"/g,'&quot;')}" onclick="clSetBrand(this.dataset.b)">${b}</button>`).join('')}
       </div>
       <input id="brand-custom-in" class="ui" type="text" placeholder="Custom brand..." style="display:${cl.brand==='Other'?'block':'none'};width:100%;margin-top:8px" value="${cl.brandCustom}" oninput="cl.brandCustom=this.value">
     </div>
@@ -5591,7 +5607,7 @@ function clOpenSheet(field) {
   ov.classList.add('on');   // ← FIX: abrir el sheet
 
   if (field === 'brand') {
-    body.innerHTML = '<div class="cl-chips">' + CL_BRANDS.map(function(b) {
+    body.innerHTML = '<div class="cl-chips">' + clBrandsForType(cl.type).map(function(b) {
       var safeBrand=b.replace(/"/g,'&quot;');return '<button class="cl-chip' + (cl.brand===b?' sel':'') + '" data-b="'+safeBrand+'" onclick="cl.brand=this.dataset.b;cl._ebayTitle=null;cl._ebayDesc=null;clUpdateSKUDisplay();clCloseSheet();clRenderReview()">' + b + '</button>';
     }).join('') + '</div>';
 
