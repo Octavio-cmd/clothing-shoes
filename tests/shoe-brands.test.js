@@ -293,7 +293,8 @@ G(22, 'Photo/image code unchanged vs 2c9d66c', 'photo');
 G(23, 'Google Sheets / write code unchanged vs 2c9d66c', 'sheets');
 G(24, 'eBay code unchanged vs 2c9d66c', 'ebay');
 check(25, 'API hosts unchanged vs 2c9d66c', () => sha(hostsOf(APP + HTML).join('\n')) === BASE_HOSTS_SHA && groupSha(baseApp, GROUPS.api) === BASE_GROUP_SHA.api);
-check(26, 'TEST PREVIEW badge present in index.html', () => /<div id="env-preview-badge"[^>]*pointer-events:none[^>]*>🧪 TEST PREVIEW — CLOTHING &amp; SHOES<\/div>/.test(HTML));
+// Employee app (clothing-shoes): the TEST PREVIEW badge must NOT be present (it exists only in clothing-shoes-preview).
+check(26, 'Employee app: no TEST PREVIEW badge / marker in index.html or app.js', () => !/env-preview-badge|TEST PREVIEW/.test(HTML + APP));
 check('scope', 'Outside the 3 sanctioned edits, app.js is byte-identical to 2c9d66c', () => sha(baseApp) === BASE_APP_SHA);
 check('offline', 'Brand/type flows make no network call; nothing leaves the sandbox (startup requests blocked by stub)', () => ({ ok: net.length === 0 && loadNet.every(x => / GET$/.test(x)), note: 'startup blocked: ' + (loadNet.join(', ') || 'none') + '; during flows: ' + (net.join(', ') || 'none') }));
 

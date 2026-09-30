@@ -366,7 +366,8 @@ G(26, 'Photo code unchanged vs 9af8830', 'photo');
 G(27, 'Sheets / write code unchanged vs 9af8830', 'sheets');
 G(28, 'eBay code unchanged vs 9af8830', 'ebay');
 check(29, 'API hosts unchanged vs 9af8830', () => sha(hostsOf(APP + HTML).join('\n')) === BASE_HOSTS_SHA && groupSha(revertItemInfoBack(APP), GROUPS.api) === BASE_GROUP_SHA.api);
-check(30, 'TEST PREVIEW badge present in index.html', () => /<div id="env-preview-badge"[^>]*pointer-events:none[^>]*>🧪 TEST PREVIEW — CLOTHING &amp; SHOES<\/div>/.test(HTML));
+// Employee app (clothing-shoes): the TEST PREVIEW badge must NOT be present (it exists only in clothing-shoes-preview).
+check(30, 'Employee app: no TEST PREVIEW badge / marker in index.html or app.js', () => !/env-preview-badge|TEST PREVIEW/.test(HTML + APP));
 G('login', 'Login/session code unchanged vs 9af8830', 'login');
 G('nav', 'clGo / Step 2 validation / setters / size wheel unchanged vs 9af8830', 'navigation');
 check('scope', 'Outside the Back-button feature edits, app.js is byte-identical to 9af8830', () => sha(revertItemInfoBack(APP)) === BASE_APP_SHA);
